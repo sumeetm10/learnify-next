@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  hashedPassword String
+  name           String?
+  role           Role      @default(STUDENT)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  progress       Progress[]
+  uploadedPdfs   TeacherPdf[]
+  contactMessages ContactMessage[]
+}
+
+model Course {
+  id          String     @id
+  name        String
+  slug        String     @unique
+  description String
+  icon        String
+  semesters   Semester[]
+}
+
+model Semester {
+  id       Int       @id @default(autoincrement())
+  name     String
+  courseId  String
+  course   Course    @relation(fields: [courseId], references: [id])
+  subjects Subject[]
+
+  @@index([courseId])
+}
+
+model Subject {
+  id          String    @id
+  title       String
+  description String
+  icon        String
+  semesterId  Int
+  semester    Semester  @relation(fields: [semesterId], references: [id])
+  chapters    Chapter[]
+
+  @@index([semesterId])
+}
+
+model Chapter {
+  id          String       @id
+  title       String
+  pdfPath     String
+  orderIndex  Int
+  subjectId   String
+  subject     Subject      @relation(fields: [subjectId], references: [id])
+  questions   Question[]
+  progress    Progress[]
+  teacherPdfs TeacherPdf[]
+
+  @@index([subjectId])
+}
+
+model Question {
+  id         String   @id @default(cuid())
+  text       String
+  options    String[]
+  answer     String
+  orderIndex Int
+  chapterId  String
+  chapter    Chapter  @relation(fields: [chapterId], references: [id])
+
+  @@index([chapterId])
+}
+
+model Progress {
+  id            String    @id @default(cuid())
+  userId        String
+  chapterId     String
+  visited       Boolean   @default(false)
+  quizCompleted Boolean   @default(false)
+  quizScore     Int       @default(0)
+  lastVisitedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+  @@index([userId])
+}
+
+model TeacherPdf {
+  id           String   @id @default(cuid())
+  title        String
+  filePath     String
+  chapterId    String
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  chapter    Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation(fields: [uploadedById], references: [id])
+
+  @@index([chapterId])
+}
+
+model ContactMessage {
+  id         String   @id @default(cuid())
+  name       String
+  email      String
+  subject    String
+  message    String
+  userId     String?
+  isRead     Boolean  @default(false)
+  isArchived Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+// Site-wide settings editable from admin panel
+// Uses a single row with id="default" — structured model for type safety
+model SiteSettings {
+  id             String   @id @default("default")
+  collegeName    String   @default("Shubhashree College of Management")
+  tagline        String   @default("Unlock Your Learning Potential")
+  heroText       String   @default("Education is not the learning of facts, but the training of the mind to think.")
+  contactEmail   String   @default("info@shubhashree.com")
+  contactPhone   String   @default("+977 9876 543 210")
+  contactAddress String   @default("Baneshwor, Kathmandu")
+  logoUrl        String   @default("/images/logo.png")
+  updatedAt      DateTime @updatedAt
+}
