@@ -23,6 +23,9 @@ export function QuizModal({ open, onClose, chapterId, chapterTitle }: Props) {
 
   useEffect(() => {
     if (open && chapterId) {
+      // Resetting quiz state when the modal (re)opens is intentional here —
+      // it syncs local state with the externally-controlled `open` prop.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true);
       setCurrentIndex(0);
       setCorrectCount(0);

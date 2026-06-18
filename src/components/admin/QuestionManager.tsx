@@ -156,7 +156,6 @@ export function QuestionManager() {
 
   useEffect(() => {
     fetchQuestions(filterChapter);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterChapter]);
 
   // Reset cascading filters

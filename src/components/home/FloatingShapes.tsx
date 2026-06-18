@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 
 const GRADIENT_COLORS = [
   ["#ff6b6b", "#feca57"],   // red → yellow
@@ -27,22 +27,33 @@ interface Shape {
   gradientId: string;
 }
 
-export function FloatingShapes() {
-  const [shapes, setShapes] = useState<Shape[]>([]);
+// Deterministic pseudo-random generator (mulberry32).
+// Seeded randomness keeps server and client renders identical (no hydration
+// mismatch) and satisfies React's purity rules, unlike Math.random().
+function seededRandom(seed: number) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-  useEffect(() => {
-    const generated: Shape[] = Array.from({ length: 15 }, (_, i) => ({
+export function FloatingShapes() {
+  const shapes = useMemo<Shape[]>(() => {
+    const rand = seededRandom(42);
+    return Array.from({ length: 15 }, (_, i) => ({
       id: i,
-      size: Math.random() * 60 + 20,
-      left: Math.random() * 100,
-      delay: Math.random() * 8,
-      duration: Math.random() * 10 + 15,
-      opacity: Math.random() * 0.25 + 0.15,
+      size: rand() * 60 + 20,
+      left: rand() * 100,
+      delay: rand() * 8,
+      duration: rand() * 10 + 15,
+      opacity: rand() * 0.25 + 0.15,
       type: (["circle", "square", "triangle"] as const)[i % 3],
-      gradient: GRADIENT_COLORS[Math.floor(Math.random() * GRADIENT_COLORS.length)] as [string, string],
+      gradient: GRADIENT_COLORS[Math.floor(rand() * GRADIENT_COLORS.length)] as [string, string],
       gradientId: `grad-${i}`,
     }));
-    setShapes(generated);
   }, []);
 
   if (shapes.length === 0) return null;

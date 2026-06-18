@@ -9,10 +9,9 @@ import type { SubjectWithChapters } from "@/types";
 
 interface Props {
   subjects: SubjectWithChapters[];
-  semesterId: number;
 }
 
-export function SemesterClient({ subjects, semesterId }: Props) {
+export function SemesterClient({ subjects }: Props) {
   const [selectedSubject, setSelectedSubject] = useState<SubjectWithChapters | null>(null);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [pdfPath, setPdfPath] = useState("");

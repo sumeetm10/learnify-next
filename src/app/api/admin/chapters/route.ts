@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { makeKey, uploadToR2, deleteFromR2 } from "@/lib/r2";
+
+const PLACEHOLDER_PDF = "/uploads/seed/placeholder.pdf";
 
 export async function GET(request: Request) {
   const auth = await requireAdmin();
@@ -39,18 +42,14 @@ export async function POST(request: Request) {
     );
   }
 
-  let pdfPath = "/uploads/seed/placeholder.pdf";
+  let pdfPath = PLACEHOLDER_PDF;
   if (file && file.size > 0) {
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const fs = await import("fs/promises");
-    const path = await import("path");
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "admin");
-    await fs.mkdir(uploadDir, { recursive: true });
-    const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
-    const filePath = path.join(uploadDir, fileName);
-    await fs.writeFile(filePath, buffer);
-    pdfPath = `/uploads/admin/${fileName}`;
+    if (file.type !== "application/pdf") {
+      return NextResponse.json({ error: "Only PDF files allowed" }, { status: 400 });
+    }
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const key = makeKey("admin", file.name);
+    pdfPath = await uploadToR2(key, buffer, "application/pdf");
   }
 
   const chapter = await prisma.chapter.create({
@@ -86,16 +85,12 @@ export async function PATCH(request: Request) {
   if (orderIndexRaw) data.orderIndex = parseInt(orderIndexRaw);
 
   if (file && file.size > 0) {
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const fs = await import("fs/promises");
-    const path = await import("path");
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "admin");
-    await fs.mkdir(uploadDir, { recursive: true });
-    const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
-    const filePath = path.join(uploadDir, fileName);
-    await fs.writeFile(filePath, buffer);
-    data.pdfPath = `/uploads/admin/${fileName}`;
+    if (file.type !== "application/pdf") {
+      return NextResponse.json({ error: "Only PDF files allowed" }, { status: 400 });
+    }
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const key = makeKey("admin", file.name);
+    data.pdfPath = await uploadToR2(key, buffer, "application/pdf");
   }
 
   const chapter = await prisma.chapter.update({ where: { id }, data });
@@ -110,6 +105,20 @@ export async function DELETE(request: Request) {
   const id = searchParams.get("id");
   if (!id)
     return NextResponse.json({ error: "ID required" }, { status: 400 });
+
+  // Purge associated PDF files from R2 (chapter's own pdf + any teacher uploads)
+  const chapter = await prisma.chapter.findUnique({
+    where: { id },
+    include: { teacherPdfs: true },
+  });
+  if (!chapter) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const urls = [
+    ...(chapter.pdfPath && chapter.pdfPath !== PLACEHOLDER_PDF ? [chapter.pdfPath] : []),
+    ...chapter.teacherPdfs.map((p) => p.filePath),
+  ];
+  await Promise.allSettled(urls.map((u) => deleteFromR2(u)));
 
   // Cascade: delete questions and progress for this chapter, then the chapter
   await prisma.question.deleteMany({ where: { chapterId: id } });

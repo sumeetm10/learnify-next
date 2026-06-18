@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireTeacherOrAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { unlink } from "fs/promises";
-import path from "path";
+import { deleteFromR2 } from "@/lib/r2";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as { role?: string }).role !== "TEACHER") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireTeacherOrAdmin();
+  if (auth.error) return auth.error;
 
   const pdfs = await prisma.teacherPdf.findMany({
     include: {
@@ -26,10 +22,8 @@ export async function GET() {
 }
 
 export async function DELETE(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as { role?: string }).role !== "TEACHER") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireTeacherOrAdmin();
+  if (auth.error) return auth.error;
 
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
@@ -43,12 +37,18 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Delete file from disk
+  // Ownership: a teacher can only delete their own PDFs; admins can delete any.
+  const role = (auth.session!.user as { role?: string }).role;
+  const userId = (auth.session!.user as { id: string }).id;
+  if (role !== "ADMIN" && pdf.uploadedById !== userId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Remove file from R2 (ignore failures so a missing object doesn't block delete)
   try {
-    const filePath = path.join(process.cwd(), "public", pdf.filePath);
-    await unlink(filePath);
+    await deleteFromR2(pdf.filePath);
   } catch {
-    // File might not exist, continue
+    // already gone or legacy local path — continue
   }
 
   await prisma.teacherPdf.delete({ where: { id } });

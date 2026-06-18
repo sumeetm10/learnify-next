@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Progress as ProgressBar } from "@/components/ui/progress";
 import { CheckCircle, Circle, BookOpen, Trophy, LogIn, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";

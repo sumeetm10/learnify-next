@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 // GET: List messages with filter
 export async function GET(request: Request) {
@@ -12,21 +13,21 @@ export async function GET(request: Request) {
   const page = parseInt(searchParams.get("page") || "1");
   const limit = 20;
 
-  const where: Record<string, unknown> = {};
+  const where: Prisma.ContactMessageWhereInput = {};
   if (status === "unread") where.isRead = false;
   if (status === "archived") where.isArchived = true;
   if (status === "all") where.isArchived = false; // "all" means non-archived
 
   const [messages, total, unreadCount] = await Promise.all([
     prisma.contactMessage.findMany({
-      where: where as any,
+      where,
       include: { user: { select: { name: true, email: true } } },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
     }),
     prisma.contactMessage.count({
-      where: where as any,
+      where,
     }),
     prisma.contactMessage.count({ where: { isRead: false } }),
   ]);

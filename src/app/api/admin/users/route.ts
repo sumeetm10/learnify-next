@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import type { Prisma, Role } from "@prisma/client";
 
 // GET: List users with search, role filter, pagination
 export async function GET(request: Request) {
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
   const page = parseInt(searchParams.get("page") || "1");
   const limit = 20;
 
-  const where: Record<string, unknown> = {};
+  const where: Prisma.UserWhereInput = {};
 
   if (search) {
     where.OR = [
@@ -23,12 +24,12 @@ export async function GET(request: Request) {
   }
 
   if (role && ["STUDENT", "TEACHER", "ADMIN"].includes(role)) {
-    where.role = role;
+    where.role = role as Role;
   }
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
-      where: where as any,
+      where,
       select: {
         id: true,
         email: true,
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.user.count({ where: where as any }),
+    prisma.user.count({ where }),
   ]);
 
   return NextResponse.json({
@@ -80,9 +81,9 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const updateData: Record<string, unknown> = {};
+  const updateData: Prisma.UserUpdateInput = {};
   if (role && ["STUDENT", "TEACHER", "ADMIN"].includes(role)) {
-    updateData.role = role;
+    updateData.role = role as Role;
   }
   if (typeof isActive === "boolean") {
     updateData.isActive = isActive;
@@ -90,7 +91,7 @@ export async function PATCH(request: Request) {
 
   const updated = await prisma.user.update({
     where: { id: userId },
-    data: updateData as any,
+    data: updateData,
     select: {
       id: true,
       email: true,

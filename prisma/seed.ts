@@ -96,7 +96,6 @@ async function main() {
   // Subjects are assigned to BCSIT course semesters
   const bcsitSemesters = semesterMap["bcsit"]; // [9, 10, 11, 12, 13, 14, 15, 16]
   const subjectsData = [
-    // ===== BCSIT SEMESTER 1 =====
     {
       id: "mathematics",
       title: "Mathematics I",

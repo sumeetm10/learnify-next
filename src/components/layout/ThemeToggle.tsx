@@ -1,15 +1,16 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Sun, Moon } from "lucide-react";
+
+// Subscribe to nothing — used only to detect client-side mount
+const emptySubscribe = () => () => {};
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // Avoid hydration mismatch — only render after mount
-  useEffect(() => setMounted(true), []);
+  // Avoid hydration mismatch — false during SSR/hydration, true after mount
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   if (!mounted) {
     // Return a placeholder with same size to prevent layout shift

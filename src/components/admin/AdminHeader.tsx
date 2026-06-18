@@ -21,7 +21,7 @@ export function AdminHeader() {
   const title = pageTitles[pathname] || "Admin";
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-gray-200 px-6 py-4">
+    <header className="sticky top-20 z-30 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {/* Mobile menu trigger */}
@@ -37,17 +37,17 @@ export function AdminHeader() {
           </Sheet>
 
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{title}</h1>
-            <p className="text-xs text-gray-500">Admin Panel</p>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Admin Panel</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium text-gray-900">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
               {session?.user?.name || "Admin"}
             </p>
-            <p className="text-xs text-gray-500">{session?.user?.email}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{session?.user?.email}</p>
           </div>
           <div className="h-9 w-9 rounded-full bg-[#427da6] flex items-center justify-center text-white text-sm font-bold">
             {(session?.user?.name || "A").charAt(0).toUpperCase()}

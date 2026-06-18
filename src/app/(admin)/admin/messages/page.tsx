@@ -243,8 +243,8 @@ export default function AdminMessagesPage() {
 
                 {/* Message Body (expandable) */}
                 {expandedId === msg.id && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-800">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                       {msg.message}
                     </p>
                   </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Menu, X, LogIn, LogOut, LayoutDashboard, UserPlus, Shield } from "lucide-react";
+import { Menu, X, LogIn, LogOut, LayoutDashboard, UserPlus } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import type { CourseData } from "@/types";
 
@@ -25,7 +25,6 @@ export function Navbar() {
   const userRole = session?.user ? (session.user as unknown as { role?: string }).role : null;
   const isAdmin = userRole === "ADMIN";
   const isTeacher = userRole === "TEACHER";
-  const isStudent = userRole === "STUDENT";
 
   const navLinks = [
     { href: "/about", label: "About" },
@@ -35,7 +34,7 @@ export function Navbar() {
 
   return (
     <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-5xl">
-      <nav className="bg-[#427da6]/90 dark:bg-[#1a3550]/95 backdrop-blur-md rounded-full px-6 py-3 shadow-lg flex items-center justify-between">
+      <nav className="bg-[#427da6]/85 dark:bg-[#1a3550]/90 backdrop-blur-xl border border-white/15 rounded-full px-4 py-2.5 shadow-lg shadow-[#1a3550]/20 flex items-center justify-between">
         <Link href="/" className="text-white font-bold text-xl tracking-wide">
           Learnify
         </Link>

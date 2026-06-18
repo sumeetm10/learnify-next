@@ -69,7 +69,7 @@ export default async function CourseSemesterPage({ params }: Props) {
         </h1>
         <p className="text-gray-600 dark:text-gray-400">Select a subject to begin learning</p>
       </div>
-      <SemesterClient subjects={JSON.parse(JSON.stringify(subjects))} semesterId={semNum} />
+      <SemesterClient subjects={JSON.parse(JSON.stringify(subjects))} />
     </div>
   );
 }

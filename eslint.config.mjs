@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone DB seed script — not part of the app build (also excluded in tsconfig)
+    "prisma/seed.ts",
+    // Generated Prisma client
+    "src/generated/**",
   ]),
 ]);
 

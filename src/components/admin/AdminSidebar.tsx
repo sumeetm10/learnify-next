@@ -25,13 +25,13 @@ export function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex md:flex-col md:w-64 md:fixed md:inset-y-0 bg-white border-r border-gray-200">
+    <aside className="hidden md:flex md:flex-col md:w-64 md:fixed md:top-20 md:bottom-0 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800">
       {/* Logo */}
-      <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-100">
+      <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-100 dark:border-slate-800">
         <GraduationCap className="h-7 w-7 text-[#427da6]" />
         <div>
-          <h1 className="text-lg font-bold text-gray-900">Learnify</h1>
-          <p className="text-xs text-gray-500">Admin Panel</p>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Learnify</h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Admin Panel</p>
         </div>
       </div>
 
@@ -48,7 +48,7 @@ export function AdminSidebar() {
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
                   ? "bg-[#427da6] text-white"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white"
               }`}
             >
               <item.icon size={18} />
@@ -59,17 +59,17 @@ export function AdminSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 py-4 border-t border-gray-100">
+      <div className="px-3 py-4 border-t border-gray-100 dark:border-slate-800">
         <Link
           href="/"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors mb-1"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white transition-colors mb-1"
         >
           <GraduationCap size={18} />
           View Site
         </Link>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors w-full cursor-pointer"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors w-full cursor-pointer"
         >
           <LogOut size={18} />
           Sign Out
