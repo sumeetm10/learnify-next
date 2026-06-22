@@ -42,7 +42,7 @@ export default async function HomePage() {
   return (
     <>
       {/* Hero Section with Animated Gradient Background */}
-      <section className="relative min-h-[92vh] flex items-center justify-center text-white overflow-hidden">
+      <section className="relative min-h-[92vh] flex items-center justify-center text-white overflow-hidden pt-28 pb-16">
         {/* Animated gradient base */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#2c5777] via-[#427da6] to-[#5a9cc5] dark:from-[#0f2236] dark:via-[#1a3550] dark:to-[#254565] animate-gradient" />
 
