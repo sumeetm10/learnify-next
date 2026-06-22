@@ -9,7 +9,7 @@ export async function GET() {
   // If not logged in, return empty progress (page still loads, just empty)
   if (!session?.user) {
     return NextResponse.json({
-      semesters: {},
+      courses: {},
       totalProgress: 0,
       lastVisited: null,
     });
@@ -28,8 +28,13 @@ export async function GET() {
     },
   });
 
-  // Build structured progress data grouped by course → semester → subject
+  // Only show what the student has actually engaged with: a chapter appears
+  // only if it has a progress record (visited or quiz taken).
+  const progressChapterIds = new Set(progress.map((p) => p.chapterId));
+
+  // Fetch only the subjects that contain at least one read chapter.
   const subjects = await prisma.subject.findMany({
+    where: { chapters: { some: { id: { in: [...progressChapterIds] } } } },
     include: {
       chapters: true,
       semester: { include: { course: true } },
@@ -58,7 +63,9 @@ export async function GET() {
     let subjectCompleted = 0;
     let subjectTotal = 0;
 
-    for (const chapter of subject.chapters) {
+    // Only include chapters the student has actually engaged with
+    const readChapters = subject.chapters.filter((c) => progressChapterIds.has(c.id));
+    for (const chapter of readChapters) {
       const prog = progress.find((p) => p.chapterId === chapter.id);
       chapters[chapter.id] = {
         visited: prog?.visited ?? false,

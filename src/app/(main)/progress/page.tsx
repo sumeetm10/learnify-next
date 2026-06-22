@@ -157,6 +157,25 @@ export default function ProgressPage() {
           </CardContent>
         </Card>
 
+        {/* Empty state — student hasn't read anything yet */}
+        {Object.keys(progress.courses).length === 0 && (
+          <Card>
+            <CardContent className="p-10 text-center">
+              <BookOpen className="mx-auto mb-3 text-gray-400" size={36} />
+              <p className="font-medium mb-1">No progress yet</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                Chapters you read and quizzes you take will show up here.
+              </p>
+              <Link
+                href="/#courses"
+                className="inline-flex items-center justify-center gap-2 bg-[#427da6] hover:bg-[#356a8f] text-white font-medium px-6 py-2.5 rounded-full transition-colors"
+              >
+                Browse Courses
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Course → Semester → Subject Sections */}
         {Object.entries(progress.courses).map(([courseId, courseData]) => (
           <div key={courseId} className="mb-12">
