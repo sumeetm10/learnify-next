@@ -25,7 +25,7 @@ export function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex md:flex-col md:w-64 md:fixed md:top-20 md:bottom-0 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800">
+    <aside className="hidden md:flex md:flex-col md:w-64 md:fixed md:top-20 md:bottom-0 bg-white dark:bg-slate-900 border-r border-gray-200 rounded-tr-lg dark:border-slate-800">
       {/* Logo */}
       <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-100 dark:border-slate-800">
         <GraduationCap className="h-7 w-7 text-[#427da6]" />

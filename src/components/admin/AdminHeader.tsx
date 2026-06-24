@@ -21,8 +21,8 @@ export function AdminHeader() {
   const title = pageTitles[pathname] || "Admin";
 
   return (
-    <header className="sticky top-20 z-30 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-6 py-4">
-      <div className="flex items-center justify-between">
+    <header className="float top-20 z-30 mx-5 rounded-lg bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-6 py-4">
+      <div className="flex items-center justify-between ">
         <div className="flex items-center gap-4">
           {/* Mobile menu trigger */}
           <Sheet>
