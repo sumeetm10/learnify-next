@@ -77,7 +77,7 @@ export default function TeacherPage() {
           p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
           p.chapter.subject.title
             .toLowerCase()
-            .includes(searchTerm.toLowerCase())
+            .includes(searchTerm.toLowerCase()),
       )
     : pdfs;
 
@@ -87,7 +87,28 @@ export default function TeacherPage() {
       toast.error("Please fill all fields");
       return;
     }
+    if (file.type !== "application/pdf") {
+      toast.error("Only PDF files are allowed.");
+      return;
+    }
+    const MAX_SIZE = 10 * 1024 * 1024;
 
+    if (file.size > MAX_SIZE) {
+      toast.error("PDF must be smaller than 10 MB.");
+      return;
+    }
+    if (file.size === 0) {
+      toast.error("The selected file is empty.");
+      return;
+    }
+    if (file.name.length > 100) {
+      toast.error("Filename is too long.");
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("File must have a .pdf extension.");
+      return;
+    }
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
@@ -108,7 +129,7 @@ export default function TeacherPage() {
         fetchPdfs();
         // Reset file input
         const fileInput = document.getElementById(
-          "pdfFile"
+          "pdfFile",
         ) as HTMLInputElement;
         if (fileInput) fileInput.value = "";
       } else {
@@ -370,9 +391,7 @@ export default function TeacherPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() =>
-                              window.open(pdf.filePath, "_blank")
-                            }
+                            onClick={() => window.open(pdf.filePath, "_blank")}
                             className="gap-1"
                           >
                             <Eye size={14} />
