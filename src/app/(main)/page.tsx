@@ -78,15 +78,26 @@ export default async function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-            {courses.map((course, i) => (
+            {courses.filter(course => course.id === "bcsit").map((course, i) => (
               <Link key={course.id} href={`/course/${course.slug}`}>
                 <Button
                   size="lg"
                   className={
-                    i === 0
+                    i !== 0
                       ? "bg-white text-[#2c5777] hover:bg-white/90 hover:scale-105 font-semibold px-8 rounded-full shadow-xl shadow-black/10 transition-all"
                       : "bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/20 hover:scale-105 font-semibold px-8 rounded-full transition-all"
                   }
+                >
+                  <span className="mr-2">{course.icon}</span>
+                  {course.name}
+                </Button>
+              </Link>
+            ))}
+            {courses.filter(course => course.id !== "bcsit").map((course, i) => (
+              <Link key={course.id} href={`/course/${course.slug}`}>
+                <Button
+                  size="lg"
+                  className="bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/20 hover:scale-105 font-semibold px-8 rounded-full transition-all"
                 >
                   <span className="mr-2">{course.icon}</span>
                   {course.name}
