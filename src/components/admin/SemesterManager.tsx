@@ -16,6 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSortable } from "@/hooks/useSortable";
+import { SortableHead } from "./SortableHead";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +56,17 @@ export function SemesterManager() {
   const [formName, setFormName] = useState("");
   const [formCourseId, setFormCourseId] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const { sorted, sortKey, sortDir, requestSort } = useSortable<Semester>(
+    semesters,
+    {
+      id: (s) => s.id,
+      name: (s) => s.name,
+      course: (s) => s.course.name,
+      subjects: (s) => s._count.subjects,
+    },
+    "id"
+  );
 
   const fetchData = async () => {
     try {
@@ -174,15 +187,15 @@ export function SemesterManager() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Course</TableHead>
-                  <TableHead>Subjects</TableHead>
+                  <SortableHead label="ID" sortKey="id" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
+                  <SortableHead label="Name" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
+                  <SortableHead label="Course" sortKey="course" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
+                  <SortableHead label="Subjects" sortKey="subjects" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {semesters.map((semester) => (
+                {sorted.map((semester) => (
                   <TableRow key={semester.id}>
                     <TableCell className="font-mono text-sm">
                       {semester.id}

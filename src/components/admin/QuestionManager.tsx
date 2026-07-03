@@ -17,6 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSortable } from "@/hooks/useSortable";
+import { SortableHead } from "./SortableHead";
 import {
   Dialog,
   DialogContent,
@@ -82,6 +84,17 @@ export function QuestionManager() {
   const [formAnswer, setFormAnswer] = useState("");
   const [formChapterId, setFormChapterId] = useState("");
   const [formOrderIndex, setFormOrderIndex] = useState("1");
+
+  const { sorted, sortKey, sortDir, requestSort } = useSortable<Question>(
+    questions,
+    {
+      order: (q) => q.orderIndex,
+      text: (q) => q.text,
+      options: (q) => q.options.length,
+      answer: (q) => q.answer,
+    },
+    "order"
+  );
 
   // Derived filtered lists
   const filteredSubjects =
@@ -348,15 +361,15 @@ export function QuestionManager() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40px]">#</TableHead>
-                  <TableHead>Question</TableHead>
-                  <TableHead>Options</TableHead>
-                  <TableHead>Answer</TableHead>
+                  <SortableHead label="#" sortKey="order" activeKey={sortKey} dir={sortDir} onSort={requestSort} className="w-[40px]" />
+                  <SortableHead label="Question" sortKey="text" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
+                  <SortableHead label="Options" sortKey="options" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
+                  <SortableHead label="Answer" sortKey="answer" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {questions.map((question) => (
+                {sorted.map((question) => (
                   <TableRow key={question.id}>
                     <TableCell className="text-gray-400">
                       {question.orderIndex}

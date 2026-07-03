@@ -24,6 +24,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useSortable } from "@/hooks/useSortable";
+import { SortableHead } from "./SortableHead";
 
 interface Course {
   id: string;
@@ -46,6 +48,16 @@ export function CourseManager() {
   const [formSlug, setFormSlug] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formIcon, setFormIcon] = useState("");
+
+  const { sorted, sortKey, sortDir, requestSort } = useSortable<Course>(
+    courses,
+    {
+      name: (c) => c.name,
+      description: (c) => c.description,
+      semesters: (c) => c._count.semesters,
+    },
+    "name"
+  );
 
   const fetchCourses = async () => {
     try {
@@ -164,14 +176,14 @@ export function CourseManager() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Icon</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="hidden md:table-cell">Description</TableHead>
-                  <TableHead>Semesters</TableHead>
+                  <SortableHead label="Name" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
+                  <SortableHead label="Description" sortKey="description" activeKey={sortKey} dir={sortDir} onSort={requestSort} className="hidden md:table-cell" />
+                  <SortableHead label="Semesters" sortKey="semesters" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {courses.map((course) => (
+                {sorted.map((course) => (
                   <TableRow key={course.id}>
                     <TableCell className="text-xl">{course.icon}</TableCell>
                     <TableCell className="font-medium">

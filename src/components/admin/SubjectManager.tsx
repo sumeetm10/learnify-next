@@ -17,6 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSortable } from "@/hooks/useSortable";
+import { SortableHead } from "./SortableHead";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +64,17 @@ export function SubjectManager() {
   const [formDescription, setFormDescription] = useState("");
   const [formIcon, setFormIcon] = useState("");
   const [formSemesterId, setFormSemesterId] = useState("");
+
+  const { sorted, sortKey, sortDir, requestSort } = useSortable<Subject>(
+    subjects,
+    {
+      title: (s) => s.title,
+      description: (s) => s.description,
+      semester: (s) => s.semester?.name ?? "",
+      chapters: (s) => s._count.chapters,
+    },
+    "title"
+  );
 
   const fetchSemesters = async () => {
     try {
@@ -231,17 +244,15 @@ export function SubjectManager() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Icon</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Description
-                  </TableHead>
-                  <TableHead>Semester</TableHead>
-                  <TableHead>Chapters</TableHead>
+                  <SortableHead label="Title" sortKey="title" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
+                  <SortableHead label="Description" sortKey="description" activeKey={sortKey} dir={sortDir} onSort={requestSort} className="hidden md:table-cell" />
+                  <SortableHead label="Semester" sortKey="semester" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
+                  <SortableHead label="Chapters" sortKey="chapters" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {subjects.map((subject) => (
+                {sorted.map((subject) => (
                   <TableRow key={subject.id}>
                     <TableCell className="text-xl">{subject.icon}</TableCell>
                     <TableCell className="font-medium">

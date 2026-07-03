@@ -16,6 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSortable } from "@/hooks/useSortable";
+import { SortableHead } from "./SortableHead";
 import {
   Dialog,
   DialogContent,
@@ -223,6 +225,18 @@ export function ChapterManager() {
         )
       : chapters;
 
+  const { sorted, sortKey, sortDir, requestSort } = useSortable<Chapter>(
+    displayedChapters,
+    {
+      title: (c) => c.title,
+      subject: (c) => c.subject?.title ?? "",
+      order: (c) => c.orderIndex,
+      pdfPath: (c) => c.pdfPath,
+      questions: (c) => c._count.questions,
+    },
+    "order"
+  );
+
   if (loading) {
     return (
       <Card>
@@ -279,18 +293,16 @@ export function ChapterManager() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Order</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    PDF Path
-                  </TableHead>
-                  <TableHead>Questions</TableHead>
+                  <SortableHead label="Title" sortKey="title" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
+                  <SortableHead label="Subject" sortKey="subject" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
+                  <SortableHead label="Order" sortKey="order" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
+                  <SortableHead label="PDF Path" sortKey="pdfPath" activeKey={sortKey} dir={sortDir} onSort={requestSort} className="hidden md:table-cell" />
+                  <SortableHead label="Questions" sortKey="questions" activeKey={sortKey} dir={sortDir} onSort={requestSort} />
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayedChapters.map((chapter) => (
+                {sorted.map((chapter) => (
                   <TableRow key={chapter.id}>
                     <TableCell className="font-medium">
                       {chapter.title}
