@@ -23,8 +23,15 @@ export function Navbar() {
   }, []);
 
   const userRole = session?.user ? (session.user as unknown as { role?: string }).role : null;
+  const userCourseId = session?.user ? (session.user as unknown as { courseId?: string | null }).courseId : null;
   const isAdmin = userRole === "ADMIN";
   const isTeacher = userRole === "TEACHER";
+
+  // Students only see their own course in the selector; everyone else sees all.
+  const visibleCourses =
+    userRole === "STUDENT" && userCourseId
+      ? courses.filter((c) => c.id === userCourseId)
+      : courses;
 
   const navLinks = [
     { href: "/about", label: "About" },
@@ -50,7 +57,7 @@ export function Navbar() {
             }}
           >
             <option value="" disabled>Select Course</option>
-            {courses.map((course) => (
+            {visibleCourses.map((course) => (
               <option key={course.id} value={`/course/${course.slug}`}>
                 {course.icon} {course.name}
               </option>
@@ -163,7 +170,7 @@ export function Navbar() {
             }}
           >
             <option value="" disabled>Select Course</option>
-            {courses.map((course) => (
+            {visibleCourses.map((course) => (
               <option key={course.id} value={`/course/${course.slug}`}>
                 {course.icon} {course.name}
               </option>

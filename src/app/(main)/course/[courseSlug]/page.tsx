@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { ArrowLeft, BookOpen } from "lucide-react";
 
@@ -24,6 +26,13 @@ export default async function CoursePage({ params }: Props) {
 
   if (!course) {
     notFound();
+  }
+
+  // Students may only view their own course; others are hidden.
+  const session = await getServerSession(authOptions);
+  const user = session?.user as { role?: string; courseId?: string | null } | undefined;
+  if (user?.role === "STUDENT" && user.courseId !== course.id) {
+    redirect("/");
   }
 
   return (

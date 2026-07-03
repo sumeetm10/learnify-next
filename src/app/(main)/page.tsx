@@ -1,10 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { BookOpen, Brain, Trophy, Zap, Search, FileText, ClipboardCheck, ArrowRight, UserPlus, GraduationCap, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FloatingShapes } from "@/components/home/FloatingShapes";
 import { Reveal } from "@/components/home/Reveal";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 const features = [
   { icon: BookOpen, title: "Direct Access to PDFs", description: "Access all your study materials in one place with easy PDF viewing" },
@@ -35,9 +38,23 @@ const steps = [
 ];
 
 export default async function HomePage() {
-  const courses = await prisma.course.findMany({
+  const allCourses = await prisma.course.findMany({
     orderBy: { name: "asc" },
   });
+
+  // Students only see their own course; guests/teachers/admins see all.
+  const session = await getServerSession(authOptions);
+  const user = session?.user as { role?: string; courseId?: string | null } | undefined;
+
+  // Students who haven't picked a course yet (legacy accounts) must onboard first.
+  if (user?.role === "STUDENT" && !user.courseId) {
+    redirect("/select-course");
+  }
+
+  const courses =
+    user?.role === "STUDENT" && user.courseId
+      ? allCourses.filter((c) => c.id === user.courseId)
+      : allCourses;
 
   return (
     <>
@@ -78,26 +95,15 @@ export default async function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-            {courses.filter(course => course.id === "bcsit").map((course, i) => (
+            {courses.map((course, i) => (
               <Link key={course.id} href={`/course/${course.slug}`}>
                 <Button
                   size="lg"
                   className={
-                    i !== 0
+                    i === 0
                       ? "bg-white text-[#2c5777] hover:bg-white/90 hover:scale-105 font-semibold px-8 rounded-full shadow-xl shadow-black/10 transition-all"
                       : "bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/20 hover:scale-105 font-semibold px-8 rounded-full transition-all"
                   }
-                >
-                  <span className="mr-2">{course.icon}</span>
-                  {course.name}
-                </Button>
-              </Link>
-            ))}
-            {courses.filter(course => course.id !== "bcsit").map((course, i) => (
-              <Link key={course.id} href={`/course/${course.slug}`}>
-                <Button
-                  size="lg"
-                  className="bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/20 hover:scale-105 font-semibold px-8 rounded-full transition-all"
                 >
                   <span className="mr-2">{course.icon}</span>
                   {course.name}

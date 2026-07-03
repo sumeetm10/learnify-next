@@ -22,9 +22,14 @@ model User {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  courseId       String?
+  course         Course?   @relation(fields: [courseId], references: [id])
+
   progress       Progress[]
   uploadedPdfs   TeacherPdf[]
   contactMessages ContactMessage[]
+
+  @@index([courseId])
 }
 
 model Course {
@@ -34,6 +39,7 @@ model Course {
   description String
   icon        String
   semesters   Semester[]
+  students    User[]
 }
 
 model Semester {

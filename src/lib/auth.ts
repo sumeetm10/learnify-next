@@ -17,7 +17,7 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null;
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: credentials.email.toLowerCase().trim() },
         });
 
         // CHANGED: Previously only TEACHER could login (user.role !== "TEACHER").
@@ -36,6 +36,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          courseId: user.courseId,
         };
       },
     }),
@@ -46,10 +47,15 @@ export const authOptions: NextAuthOptions = {
     // JWT callback: Runs every time a JWT is created or updated.
     // We store the user's role and id IN the token itself — this way
     // we don't need to hit the database on every request to check the role.
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.role = (user as unknown as { role: string }).role;
         token.id = user.id;
+        token.courseId = (user as unknown as { courseId: string | null }).courseId;
+      }
+      // When the client calls update({ courseId }) after onboarding, refresh the token
+      if (trigger === "update" && session?.courseId) {
+        token.courseId = session.courseId;
       }
       return token;
     },
@@ -59,6 +65,8 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as { role?: string }).role = token.role as string;
         (session.user as { id?: string }).id = token.id as string;
+        (session.user as { courseId?: string | null }).courseId =
+          (token.courseId as string | null) ?? null;
       }
       return session;
     },
