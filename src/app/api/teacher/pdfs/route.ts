@@ -7,7 +7,12 @@ export async function GET() {
   const auth = await requireTeacherOrAdmin();
   if (auth.error) return auth.error;
 
+  // A teacher sees only their own uploads; an admin sees all.
+  const role = (auth.session!.user as { role?: string }).role;
+  const userId = (auth.session!.user as { id: string }).id;
+
   const pdfs = await prisma.teacherPdf.findMany({
+    where: role === "ADMIN" ? undefined : { uploadedById: userId },
     include: {
       chapter: {
         include: {
