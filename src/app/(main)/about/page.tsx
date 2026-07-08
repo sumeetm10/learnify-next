@@ -17,7 +17,7 @@ const approachItems = [
 ];
 
 const teamMembers = [
-  { name: "Aadaesh Bist", role: "Founder & Lead Educator", image: "/images/Aadarsh.png" },
+  { name: "Aadarsh Bist", role: "Founder & Lead Educator", image: "/images/Adarsh.png" },
   { name: "Sumeet Shrestha", role: "Web Developer", image: "/images/Sumeet.png" },
   { name: "Nishant Upadhyay", role: "Web Developer", image: "/images/Nishant.png" },
   { name: "Anil Kumar Panta", role: "Supervisor", image: "/images/anil sir.jpg" },
