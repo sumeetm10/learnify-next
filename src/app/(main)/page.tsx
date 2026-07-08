@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { BookOpen, Brain, Trophy, Zap, Search, FileText, ClipboardCheck, ArrowRight, UserPlus, GraduationCap, Sparkles } from "lucide-react";
+import { BookOpen, Brain, Trophy, Zap, Search, FileText, ClipboardCheck, ArrowRight, UserPlus, GraduationCap, Sparkles, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FloatingShapes } from "@/components/home/FloatingShapes";
 import { Reveal } from "@/components/home/Reveal";
@@ -51,10 +51,17 @@ export default async function HomePage() {
     redirect("/select-course");
   }
 
-  const courses =
-    user?.role === "STUDENT" && user.courseId
-      ? allCourses.filter((c) => c.id === user.courseId)
+  // Courses are only shown to logged-in users: a student sees only their own,
+  // teachers/admins see all, and logged-out visitors see none.
+  const courses = !user
+    ? []
+    : user.role === "STUDENT"
+      ? user.courseId
+        ? allCourses.filter((c) => c.id === user.courseId)
+        : []
       : allCourses;
+
+  const isLoggedIn = !!user;
 
   return (
     <>
@@ -91,38 +98,54 @@ export default async function HomePage() {
 
           <p className="text-white/70 text-sm mb-5 flex items-center justify-center gap-2">
             <Sparkles size={14} className="text-[#9fd3f5]" />
-            Choose your course to get started
+            {isLoggedIn ? "Choose your course to get started" : "Sign in to access your course materials"}
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-            {courses.filter(course => course.id == "bcsit").map((course, i) => (
-              <Link key={course.id} href={`/course/${course.slug}`}>
+          {courses.length > 0 ? (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+              {courses.map((course, i) => (
+                <Link key={course.id} href={`/course/${course.slug}`}>
+                  <Button
+                    size="lg"
+                    className={
+                      i === 0
+                        ? "bg-white text-[#2c5777] hover:bg-white/90 hover:scale-105 font-semibold px-8 rounded-full shadow-xl shadow-black/10 transition-all"
+                        : "bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/20 hover:scale-105 font-semibold px-8 rounded-full transition-all"
+                    }
+                  >
+                    <span className="mr-2">{course.icon}</span>
+                    {course.name}
+                  </Button>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+              <Link href="/login">
                 <Button
                   size="lg"
-                  className="bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/20 hover:scale-105 font-semibold px-8 rounded-full transition-all"                  
+                  className="bg-white text-[#2c5777] hover:bg-white/90 hover:scale-105 font-semibold px-8 rounded-full shadow-xl shadow-black/10 transition-all gap-2"
                 >
-                  <span className="mr-2">{course.icon}</span>
-                  {course.name}
+                  <LogIn size={18} />
+                  Sign In
                 </Button>
               </Link>
-            ))}
-            {courses.filter(course => course.id != "bcsit").map((course, i) => (
-              <Link key={course.id} href={`/course/${course.slug}`}>
+              <Link href="/register">
                 <Button
                   size="lg"
-                  className="bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/20 hover:scale-105 font-semibold px-8 rounded-full transition-all"                  
+                  className="bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/20 hover:scale-105 font-semibold px-8 rounded-full transition-all gap-2"
                 >
-                  <span className="mr-2">{course.icon}</span>
-                  {course.name}
+                  <UserPlus size={18} />
+                  Register
                 </Button>
               </Link>
-            ))}
-          </div>
+            </div>
+          )}
 
           {/* Glass stat chips */}
           <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
             {[
-              `${courses.length} Courses`,
+              `${allCourses.length} Courses`,
               "8 Semesters Each",
               "Quizzes & Progress Tracking",
               "100% Free",
@@ -164,36 +187,38 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Course Selection Section */}
-      <section id="courses" className="py-24 px-6 bg-gradient-to-b from-transparent via-[#427da6]/[0.04] to-transparent dark:via-[#427da6]/[0.06]">
-        <div className="max-w-5xl mx-auto">
-          <Reveal>
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">Choose Your Course</h2>
-            <p className="text-center text-gray-500 dark:text-gray-400 mb-12 max-w-xl mx-auto">
-              Select your program to access semesters, subjects, and study materials.
-            </p>
-          </Reveal>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {courses.map((course, i) => (
-              <Reveal key={course.id} delay={i * 120}>
-                <Link
-                  href={`/course/${course.slug}`}
-                  className="block h-full group relative bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl rounded-3xl p-8 border border-gray-200/60 dark:border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_16px_50px_rgba(66,125,166,0.22)] transition-all duration-300 hover:-translate-y-1.5 text-center overflow-hidden"
-                >
-                  {/* Hover glow accent */}
-                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#427da6] via-[#5a9cc5] to-[#427da6] opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <span className="text-5xl mb-5 block group-hover:scale-110 transition-transform duration-300">{course.icon}</span>
-                  <h3 className="text-xl font-bold mb-2">{course.name}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{course.description}</p>
-                  <span className="inline-flex items-center gap-1 mt-5 text-[#427da6] text-sm font-medium group-hover:gap-2 transition-all">
-                    View Semesters <ArrowRight size={14} />
-                  </span>
-                </Link>
-              </Reveal>
-            ))}
+      {/* Course Selection Section — only for logged-in users who have courses */}
+      {courses.length > 0 && (
+        <section id="courses" className="py-24 px-6 bg-gradient-to-b from-transparent via-[#427da6]/[0.04] to-transparent dark:via-[#427da6]/[0.06]">
+          <div className="max-w-5xl mx-auto">
+            <Reveal>
+              <h2 className="text-3xl md:text-4xl font-bold text-center mb-3">Choose Your Course</h2>
+              <p className="text-center text-gray-500 dark:text-gray-400 mb-12 max-w-xl mx-auto">
+                Select your program to access semesters, subjects, and study materials.
+              </p>
+            </Reveal>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              {courses.map((course, i) => (
+                <Reveal key={course.id} delay={i * 120}>
+                  <Link
+                    href={`/course/${course.slug}`}
+                    className="block h-full group relative bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl rounded-3xl p-8 border border-gray-200/60 dark:border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_16px_50px_rgba(66,125,166,0.22)] transition-all duration-300 hover:-translate-y-1.5 text-center overflow-hidden"
+                  >
+                    {/* Hover glow accent */}
+                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#427da6] via-[#5a9cc5] to-[#427da6] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="text-5xl mb-5 block group-hover:scale-110 transition-transform duration-300">{course.icon}</span>
+                    <h3 className="text-xl font-bold mb-2">{course.name}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{course.description}</p>
+                    <span className="inline-flex items-center gap-1 mt-5 text-[#427da6] text-sm font-medium group-hover:gap-2 transition-all">
+                      View Semesters <ArrowRight size={14} />
+                    </span>
+                  </Link>
+                </Reveal>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* How It Works Section */}
       <section className="py-24 px-6">
