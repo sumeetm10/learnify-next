@@ -28,11 +28,15 @@ export default async function CoursePage({ params }: Props) {
     notFound();
   }
 
-  // Students may only view their own course; others are hidden.
+  // Course content is private: logged-out visitors are sent to login,
+  // and students may only view their own course.
   const session = await getServerSession(authOptions);
   const user = session?.user as { role?: string; courseId?: string | null } | undefined;
-  if (user?.role === "STUDENT" && user.courseId !== course.id) {
-    redirect("/");
+  if (!user) {
+    redirect("/login");
+  }
+  if (user.role === "STUDENT" && user.courseId !== course.id) {
+    redirect("/unauthorized");
   }
 
   return (

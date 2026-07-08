@@ -17,14 +17,15 @@ export default withAuth(
     const token = req.nextauth.token;
     const pathname = req.nextUrl.pathname;
 
-    // Admin routes: only ADMIN role allowed
+    // Admin routes: only ADMIN role allowed. A logged-in user with the wrong
+    // role is forbidden (401), not unauthenticated — send them to /unauthorized.
     if (pathname.startsWith("/admin") && token?.role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/login", req.url));
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
 
     // Teacher routes: only TEACHER role allowed
     if (pathname.startsWith("/teacher") && token?.role !== "TEACHER") {
-      return NextResponse.redirect(new URL("/login", req.url));
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
 
     return NextResponse.next();
