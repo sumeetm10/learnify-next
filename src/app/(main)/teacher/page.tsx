@@ -91,7 +91,7 @@ export default function TeacherPage() {
       toast.error("Only PDF files are allowed.");
       return;
     }
-    const MAX_SIZE = 50 * 1024 * 1024;
+    const MAX_SIZE = 60 * 1024 * 1024;
 
     if (file.size > MAX_SIZE) {
       toast.error("PDF must be smaller than 10 MB.");
