@@ -1,0 +1,1057 @@
+"use client";
+
+import { useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+
+/* ------------------------------------------------------------------ *
+ * Teacher Dashboard — exact reproduction of the provided design.
+ * Dark, self-contained dashboard (own sidebar + topbar), full-screen.
+ * ------------------------------------------------------------------ */
+
+// Parse a raw CSS declaration string into a React style object so the
+// design's exact inline styles can be reused verbatim.
+function s(str: string): CSSProperties {
+  const o: Record<string, string> = {};
+  for (const decl of str.split(";")) {
+    const idx = decl.indexOf(":");
+    if (idx < 0) continue;
+    const rawKey = decl.slice(0, idx).trim();
+    const val = decl.slice(idx + 1).trim();
+    if (!rawKey || !val) continue;
+    const key = rawKey.startsWith("--")
+      ? rawKey
+      : rawKey.replace(/-([a-z])/g, (_m, c: string) => c.toUpperCase());
+    o[key] = val;
+  }
+  return o as CSSProperties;
+}
+
+// Small SVG helper (24x24, rounded caps/joins by default).
+function I({
+  w = 19,
+  h,
+  sw = 1.9,
+  stroke = "currentColor",
+  fill = "none",
+  children,
+}: {
+  w?: number;
+  h?: number;
+  sw?: number;
+  stroke?: string;
+  fill?: string;
+  children: ReactNode;
+}) {
+  return (
+    <svg
+      width={w}
+      height={h ?? w}
+      viewBox="0 0 24 24"
+      fill={fill}
+      stroke={stroke}
+      strokeWidth={sw}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {children}
+    </svg>
+  );
+}
+
+/* -------------------------------- icons -------------------------------- */
+const IcDashboard = (
+  <I>
+    <rect x="3" y="3" width="7" height="7" rx="1.5" />
+    <rect x="14" y="3" width="7" height="7" rx="1.5" />
+    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" />
+  </I>
+);
+const IcMaterials = (
+  <I>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5" />
+    <path d="M9 13h6" />
+    <path d="M9 17h6" />
+  </I>
+);
+const IcQuizzes = (
+  <I>
+    <path d="M9 11l3 3 8-8" />
+    <path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" />
+  </I>
+);
+const IcAnalytics = (
+  <I>
+    <path d="M3 3v18h18" />
+    <rect x="7" y="11" width="3" height="6" rx="1" />
+    <rect x="12" y="7" width="3" height="10" rx="1" />
+    <rect x="17" y="9" width="3" height="8" rx="1" />
+  </I>
+);
+const IcCourses = (
+  <I>
+    <path d="M12 3l9 5-9 5-9-5z" />
+    <path d="M3 12l9 5 9-5" />
+    <path d="M3 16l9 5 9-5" />
+  </I>
+);
+const IcAnnounce = (
+  <I>
+    <path d="M3 11l14-6v14L3 13z" />
+    <path d="M3 11v2a2 2 0 0 0 2 2h1" />
+    <path d="M8 15v3a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-2" />
+  </I>
+);
+const IcProfile = (
+  <I>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21c0-4 3.5-6 8-6s8 2 8 6" />
+  </I>
+);
+const IcFile = (w = 18) => (
+  <I w={w}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5" />
+  </I>
+);
+const IcPlus = (w = 15, sw = 2.4) => (
+  <I w={w} sw={sw}>
+    <path d="M12 5v14M5 12h14" />
+  </I>
+);
+const IcEye = (
+  <I w={15} sw={2}>
+    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+    <circle cx="12" cy="12" r="3" />
+  </I>
+);
+const IcTrash = (
+  <I w={15} sw={2}>
+    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+  </I>
+);
+const IcPaper = (
+  <I w={17} sw={2}>
+    <path d="M3 11l14-6v14L3 13z" />
+  </I>
+);
+const IcChart = (
+  <I w={17} sw={2}>
+    <path d="M3 3v18h18" />
+    <path d="M7 14l4-4 3 3 5-6" />
+  </I>
+);
+const IcBook = (
+  <I w={17}>
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+  </I>
+);
+
+/* ------------------------------- data types ------------------------------ */
+interface Material {
+  id: number;
+  title: string;
+  course: string;
+  semester: string;
+  subject: string;
+  chapter: string;
+  pages: number;
+  size: string;
+  downloads: number;
+  date: string;
+}
+interface Quiz {
+  id: number;
+  title: string;
+  course: string;
+  subject: string;
+  questions: number;
+  attempts: number;
+  avg: number;
+  status: string;
+}
+interface Announcement {
+  id: number;
+  title: string;
+  course: string;
+  body: string;
+  author: string;
+  date: string;
+}
+interface Student {
+  name: string;
+  course: string;
+  comp: number;
+  score: number;
+}
+interface Activity {
+  name: string;
+  action: string;
+  score: string;
+  time: string;
+  course: string;
+}
+interface DraftQ {
+  q: string;
+  opts: string[];
+  correct: number;
+}
+
+type Page =
+  | "dashboard"
+  | "materials"
+  | "quizzes"
+  | "progress"
+  | "courses"
+  | "announcements"
+  | "profile";
+
+/* ------------------------------- seed data ------------------------------ */
+const SEED_MATERIALS: Material[] = [
+  { id: 1, title: "Normalization & Keys", course: "BCSIT", semester: "Semester 4", subject: "Database Management", chapter: "3", pages: 24, size: "2.1 MB", downloads: 186, date: "Jul 8" },
+  { id: 2, title: "TCP/IP Model Explained", course: "BCSIT", semester: "Semester 4", subject: "Computer Networks", chapter: "2", pages: 31, size: "3.4 MB", downloads: 142, date: "Jul 6" },
+  { id: 3, title: "React Fundamentals", course: "BCSIT", semester: "Semester 5", subject: "Web Technology", chapter: "1", pages: 42, size: "4.8 MB", downloads: 209, date: "Jul 5" },
+  { id: 4, title: "Sorting Algorithms", course: "BCSIT", semester: "Semester 3", subject: "Data Structures", chapter: "5", pages: 28, size: "2.7 MB", downloads: 174, date: "Jul 3" },
+  { id: 5, title: "Principles of Marketing", course: "BBA", semester: "Semester 2", subject: "Marketing", chapter: "1", pages: 36, size: "3.0 MB", downloads: 98, date: "Jul 2" },
+  { id: 6, title: "Financial Statements", course: "BBA", semester: "Semester 3", subject: "Accounting", chapter: "4", pages: 40, size: "3.9 MB", downloads: 121, date: "Jul 1" },
+  { id: 7, title: "Food & Beverage Service", course: "BHM", semester: "Semester 2", subject: "F&B Operations", chapter: "2", pages: 22, size: "1.9 MB", downloads: 67, date: "Jun 29" },
+  { id: 8, title: "ER Diagrams", course: "BCSIT", semester: "Semester 4", subject: "Database Management", chapter: "2", pages: 19, size: "1.6 MB", downloads: 158, date: "Jun 27" },
+];
+
+const SEED_QUIZZES: Quiz[] = [
+  { id: 1, title: "DBMS · Chapter 3 Quiz", course: "BCSIT", subject: "Database Management", questions: 15, attempts: 128, avg: 82, status: "Published" },
+  { id: 2, title: "Networks · TCP/IP", course: "BCSIT", subject: "Computer Networks", questions: 12, attempts: 96, avg: 68, status: "Published" },
+  { id: 3, title: "Web Tech · React Basics", course: "BCSIT", subject: "Web Technology", questions: 20, attempts: 141, avg: 88, status: "Published" },
+  { id: 4, title: "Data Structures · Sorting", course: "BCSIT", subject: "Data Structures", questions: 10, attempts: 0, avg: 0, status: "Draft" },
+  { id: 5, title: "Marketing · Fundamentals", course: "BBA", subject: "Marketing", questions: 14, attempts: 74, avg: 76, status: "Published" },
+  { id: 6, title: "F&B · Service Standards", course: "BHM", subject: "F&B Operations", questions: 12, attempts: 41, avg: 71, status: "Draft" },
+];
+
+const SEED_ANNOUNCEMENTS: Announcement[] = [
+  { id: 1, title: "Mid-term quiz schedule released", course: "BCSIT", body: "The mid-term quizzes for Semester 4 will open Monday. Database Management and Computer Networks quizzes will be available for 48 hours each. Make sure to review chapters 1–4.", author: "Aadarsh Bist", date: "Jul 9, 2026" },
+  { id: 2, title: "New React material uploaded", course: "BCSIT", body: "I have uploaded the React Fundamentals chapter under Web Technology (Semester 5). It covers components, props and state with examples. Read before next class.", author: "Aadarsh Bist", date: "Jul 5, 2026" },
+  { id: 3, title: "Marketing assignment deadline", course: "BBA", body: "The Principles of Marketing assignment is due this Friday. Submit through the portal. Late submissions will not be accepted.", author: "Aadarsh Bist", date: "Jul 2, 2026" },
+  { id: 4, title: "Welcome to the new semester", course: "All", body: "Welcome back everyone! All updated materials and quizzes are now live on Learnify. Reach out if you have trouble accessing any chapter.", author: "Aadarsh Bist", date: "Jun 24, 2026" },
+];
+
+const SEED_STUDENTS: Student[] = [
+  { name: "Sumeet Shrestha", course: "BCSIT", comp: 86, score: 88 },
+  { name: "Nishant Upadhyay", course: "BCSIT", comp: 74, score: 79 },
+  { name: "Priya Karki", course: "BBA", comp: 91, score: 92 },
+  { name: "Rohan Thapa", course: "BCSIT", comp: 58, score: 64 },
+  { name: "Anisha Gurung", course: "BHM", comp: 67, score: 73 },
+  { name: "Bibek Rai", course: "BCSIT", comp: 80, score: 81 },
+  { name: "Sneha Maharjan", course: "BBA", comp: 45, score: 58 },
+];
+
+const SEED_ACTIVITY: Activity[] = [
+  { name: "Priya Karki", action: "completed DBMS · Chapter 3 Quiz", score: "92%", time: "5 min ago", course: "BBA" },
+  { name: "Sumeet Shrestha", action: "downloaded React Fundamentals", score: "—", time: "22 min ago", course: "BCSIT" },
+  { name: "Rohan Thapa", action: "attempted Networks · TCP/IP", score: "64%", time: "1 hr ago", course: "BCSIT" },
+  { name: "Anisha Gurung", action: "completed F&B · Service Standards", score: "73%", time: "3 hr ago", course: "BHM" },
+  { name: "Bibek Rai", action: "completed Web Tech · React Basics", score: "81%", time: "5 hr ago", course: "BCSIT" },
+];
+
+const LAST_ACTIVE = ["2h ago", "1d ago", "3h ago", "5h ago", "1d ago", "4h ago", "2d ago"];
+
+const COURSE_CARDS = [
+  { code: "BCSIT", name: "Computer Science & IT", color: "var(--accent)", tagBg: "var(--accent-soft)", subjects: 42, students: 186 },
+  { code: "BBA", name: "Business Administration", color: "var(--green)", tagBg: "var(--green-soft)", subjects: 38, students: 104 },
+  { code: "BHM", name: "Hotel Management", color: "var(--amber)", tagBg: "var(--amber-soft)", subjects: 34, students: 52 },
+];
+
+const SUBJECT_LIST = [
+  { name: "Database Management", chapters: 8, pdfs: 12 },
+  { name: "Computer Networks", chapters: 7, pdfs: 9 },
+  { name: "Operating Systems", chapters: 9, pdfs: 11 },
+  { name: "Web Technology", chapters: 6, pdfs: 14 },
+  { name: "Software Engineering", chapters: 8, pdfs: 8 },
+  { name: "Numerical Methods", chapters: 5, pdfs: 6 },
+];
+
+const PAGE_TITLES: Record<Page, [string, string]> = {
+  dashboard: ["Dashboard", "Welcome back, Aadarsh — here is your teaching overview"],
+  materials: ["Study Materials", "Upload and organise PDFs by course, semester & chapter"],
+  quizzes: ["Quizzes", "Create and manage MCQ quizzes for your students"],
+  progress: ["Analytics", "Track student performance across subjects"],
+  courses: ["Courses & Subjects", "Manage your courses, semesters and subjects"],
+  announcements: ["Announcements", "Keep your students informed"],
+  profile: ["Profile", "Manage your account details"],
+};
+
+/* ------------------------------- helpers ------------------------------- */
+function meta(course: string): { color: string; bg: string } {
+  const m: Record<string, { color: string; bg: string }> = {
+    BCSIT: { color: "var(--accent)", bg: "var(--accent-soft)" },
+    BBA: { color: "var(--green)", bg: "var(--green-soft)" },
+    BHM: { color: "var(--amber)", bg: "var(--amber-soft)" },
+    All: { color: "var(--muted)", bg: "rgba(148,163,184,.14)" },
+  };
+  return m[course] || m.All;
+}
+const initials = (name: string) =>
+  name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+const scoreColor = (n: number) =>
+  n >= 80 ? "var(--green)" : n >= 65 ? "var(--accent)" : "var(--amber)";
+
+/* ------------------------------ component ------------------------------ */
+export default function TeacherPage() {
+  const [page, setPage] = useState<Page>("dashboard");
+  const [course, setCourse] = useState("BCSIT");
+  const [search, setSearch] = useState("");
+  const [matFilterSem, setMatFilterSem] = useState("All semesters");
+
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [annOpen, setAnnOpen] = useState(false);
+  const [toast, setToast] = useState("");
+
+  const [materials, setMaterials] = useState<Material[]>(SEED_MATERIALS);
+  const [quizzes, setQuizzes] = useState<Quiz[]>(SEED_QUIZZES);
+  const [announcements, setAnnouncements] = useState<Announcement[]>(SEED_ANNOUNCEMENTS);
+
+  const [upload, setUpload] = useState({ course: "BCSIT", semester: "Semester 4", subject: "", chapter: "", title: "" });
+  const [ann, setAnn] = useState({ course: "BCSIT", title: "", body: "" });
+  const [quiz, setQuiz] = useState<{ course: string; subject: string; title: string; questions: DraftQ[] }>({
+    course: "BCSIT",
+    subject: "",
+    title: "",
+    questions: [{ q: "", opts: ["", "", "", ""], correct: 0 }],
+  });
+
+  const toastTimer = useRef<number | undefined>(undefined);
+  const showToast = (msg: string) => {
+    setToast(msg);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(""), 2600);
+  };
+
+  const submitUpload = () => {
+    if (!upload.title.trim() || !upload.subject.trim()) {
+      showToast("Add a title and subject first");
+      return;
+    }
+    const nid = Math.max(0, ...materials.map((m) => m.id)) + 1;
+    const item: Material = {
+      id: nid,
+      title: upload.title,
+      course: upload.course,
+      semester: upload.semester,
+      subject: upload.subject,
+      chapter: upload.chapter || "1",
+      pages: Math.floor(15 + Math.random() * 30),
+      size: (1 + Math.random() * 3).toFixed(1) + " MB",
+      downloads: 0,
+      date: "Just now",
+    };
+    setMaterials((m) => [item, ...m]);
+    setCourse(upload.course);
+    setUploadOpen(false);
+    setUpload({ course: "BCSIT", semester: "Semester 4", subject: "", chapter: "", title: "" });
+    showToast("Material uploaded successfully");
+  };
+
+  const submitAnn = () => {
+    if (!ann.title.trim() || !ann.body.trim()) {
+      showToast("Add a title and message first");
+      return;
+    }
+    const nid = Math.max(0, ...announcements.map((x) => x.id)) + 1;
+    const item: Announcement = { id: nid, title: ann.title, course: ann.course, body: ann.body, author: "Aadarsh Bist", date: "Just now" };
+    setAnnouncements((a) => [item, ...a]);
+    setAnnOpen(false);
+    setAnn({ course: "BCSIT", title: "", body: "" });
+    showToast("Announcement posted");
+  };
+
+  const addQuestion = () =>
+    setQuiz((q) => ({ ...q, questions: [...q.questions, { q: "", opts: ["", "", "", ""], correct: 0 }] }));
+  const removeQuestion = (i: number) =>
+    setQuiz((q) => {
+      const arr = q.questions.slice();
+      if (arr.length > 1) arr.splice(i, 1);
+      return { ...q, questions: arr };
+    });
+  const setQ = (i: number, val: string) =>
+    setQuiz((q) => {
+      const arr = q.questions.slice();
+      arr[i] = { ...arr[i], q: val };
+      return { ...q, questions: arr };
+    });
+  const setOpt = (i: number, oi: number, val: string) =>
+    setQuiz((q) => {
+      const arr = q.questions.slice();
+      const opts = arr[i].opts.slice();
+      opts[oi] = val;
+      arr[i] = { ...arr[i], opts };
+      return { ...q, questions: arr };
+    });
+  const setCorrect = (i: number, oi: number) =>
+    setQuiz((q) => {
+      const arr = q.questions.slice();
+      arr[i] = { ...arr[i], correct: oi };
+      return { ...q, questions: arr };
+    });
+
+  const submitQuiz = () => {
+    if (!quiz.title.trim() || !quiz.subject.trim()) {
+      showToast("Add a title and subject first");
+      return;
+    }
+    const nid = Math.max(0, ...quizzes.map((x) => x.id)) + 1;
+    const item: Quiz = { id: nid, title: quiz.title, course: quiz.course, subject: quiz.subject, questions: quiz.questions.length, attempts: 0, avg: 0, status: "Published" };
+    setQuizzes((q) => [item, ...q]);
+    setCourse(quiz.course);
+    setQuizOpen(false);
+    setQuiz({ course: "BCSIT", subject: "", title: "", questions: [{ q: "", opts: ["", "", "", ""], correct: 0 }] });
+    showToast("Quiz published");
+  };
+
+  const deleteMaterial = (id: number) => {
+    setMaterials((m) => m.filter((x) => x.id !== id));
+    showToast("Material deleted");
+  };
+  const deleteQuiz = (id: number) => {
+    setQuizzes((q) => q.filter((x) => x.id !== id));
+    showToast("Quiz deleted");
+  };
+  const toggleQuiz = (id: number) =>
+    setQuizzes((q) =>
+      q.map((x) => (x.id === id ? { ...x, status: x.status === "Published" ? "Draft" : "Published" } : x)),
+    );
+
+  /* --------------------------- derived values --------------------------- */
+  const navFor = (p: Page) => ({
+    bg: page === p ? "var(--accent-soft)" : "transparent",
+    col: page === p ? "var(--text)" : "var(--muted)",
+  });
+  const pillFor = (c: string) => ({
+    bg: course === c ? "var(--accent)" : "transparent",
+    col: course === c ? "#fff" : "var(--muted)",
+  });
+
+  const searchLC = search.trim().toLowerCase();
+  let fm = materials.filter((m) => m.course === course);
+  if (matFilterSem !== "All semesters") fm = fm.filter((m) => m.semester === matFilterSem);
+  if (searchLC) fm = fm.filter((m) => (m.title + m.subject).toLowerCase().includes(searchLC));
+
+  let fq = quizzes.filter((q) => q.course === course);
+  if (searchLC) fq = fq.filter((q) => (q.title + q.subject).toLowerCase().includes(searchLC));
+
+  const recentMaterials = materials.slice(0, 4);
+  const [pageTitle, pageSub] = PAGE_TITLES[page];
+
+  const coursePills = () => (
+    <div style={s("display:flex;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:5px")}>
+      {(["BCSIT", "BBA", "BHM"] as const).map((c) => {
+        const p = pillFor(c);
+        return (
+          <button
+            key={c}
+            onClick={() => setCourse(c)}
+            style={s(`padding:8px 15px;border:none;border-radius:9px;cursor:pointer;font:600 13px Manrope;background:${p.bg};color:${p.col}`)}
+          >
+            {c}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div className="tdscope" style={s("position:fixed;inset:0;display:flex;overflow:hidden;font-family:Manrope,sans-serif;background:var(--bg)")}>
+      <style>{CSS}</style>
+
+      {/* ================= SIDEBAR ================= */}
+      <aside style={s("width:256px;flex:none;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 16px")}>
+        <div style={s("display:flex;align-items:center;gap:11px;padding:6px 8px 20px")}>
+          <div style={s("width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--accent),#3f6fac);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(79,134,198,.35)")}>
+            <I w={21} sw={2.2} stroke="#fff">
+              <path d="M2 7l10-4 10 4-10 4z" />
+              <path d="M6 10v5c0 1 2.5 2.5 6 2.5s6-1.5 6-2.5v-5" />
+              <path d="M22 7v5" />
+            </I>
+          </div>
+          <div>
+            <div style={s("font:800 19px Poppins;letter-spacing:-.3px;line-height:1")}>Learnify</div>
+            <div style={s("font:600 10.5px Manrope;color:var(--faint);letter-spacing:.6px;margin-top:3px")}>TEACHER PORTAL</div>
+          </div>
+        </div>
+
+        <div style={s("font:700 10.5px Manrope;color:var(--faint);letter-spacing:1px;padding:6px 10px 8px")}>MENU</div>
+        <nav style={s("display:flex;flex-direction:column;gap:3px")}>
+          {([
+            ["dashboard", "Dashboard", IcDashboard],
+            ["materials", "Materials", IcMaterials],
+            ["quizzes", "Quizzes", IcQuizzes],
+            ["progress", "Analytics", IcAnalytics],
+            ["courses", "Courses", IcCourses],
+            ["announcements", "Announcements", IcAnnounce],
+          ] as [Page, string, ReactNode][]).map(([key, label, icon]) => {
+            const n = navFor(key);
+            return (
+              <button
+                key={key}
+                onClick={() => setPage(key)}
+                style={s(`display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:none;border-radius:11px;cursor:pointer;font:600 14px Manrope;text-align:left;transition:background .15s;background:${n.bg};color:${n.col}`)}
+              >
+                {icon}
+                {label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div style={s("flex:1")} />
+
+        <div style={s("font:700 10.5px Manrope;color:var(--faint);letter-spacing:1px;padding:6px 10px 8px")}>ACCOUNT</div>
+        {(() => {
+          const n = navFor("profile");
+          return (
+            <button
+              onClick={() => setPage("profile")}
+              style={s(`display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:none;border-radius:11px;cursor:pointer;font:600 14px Manrope;text-align:left;transition:background .15s;background:${n.bg};color:${n.col}`)}
+            >
+              {IcProfile}
+              Profile
+            </button>
+          );
+        })()}
+
+        <div style={s("margin-top:12px;display:flex;align-items:center;gap:11px;padding:11px;border-radius:13px;background:var(--card);border:1px solid var(--border)")}>
+          <div style={s("width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:700 13px Poppins;color:#fff;flex:none")}>AB</div>
+          <div style={s("min-width:0")}>
+            <div style={s("font:600 13px Manrope;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>Aadarsh Bist</div>
+            <div style={s("font:500 11px Manrope;color:var(--faint)")}>Faculty · BCSIT</div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ================= MAIN ================= */}
+      <div style={s("flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg)")}>
+        {/* TOPBAR */}
+        <header style={s("flex:none;height:70px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 28px;background:rgba(11,18,32,.7);backdrop-filter:blur(8px)")}>
+          <div style={s("min-width:0")}>
+            <div style={s("font:700 19px Poppins;letter-spacing:-.3px;line-height:1.1")}>{pageTitle}</div>
+            <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:2px")}>{pageSub}</div>
+          </div>
+          <div style={s("flex:1")} />
+          <div className="h-search" style={s("display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:9px 13px;width:230px")}>
+            <I w={16} sw={2} stroke="var(--faint)">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4-4" />
+            </I>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search materials, quizzes…"
+              style={s("border:none;background:transparent;color:var(--text);font:500 13px Manrope;outline:none;width:100%")}
+            />
+          </div>
+          <button className="h-bell" style={s("position:relative;width:42px;height:42px;border-radius:11px;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)")}>
+            <I w={19}>
+              <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+            </I>
+            <span style={s("position:absolute;top:9px;right:10px;width:7px;height:7px;border-radius:50%;background:var(--accent);border:2px solid var(--card)")} />
+          </button>
+          <div style={s("width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:700 14px Poppins;color:#fff;cursor:pointer")}>AB</div>
+        </header>
+
+        {/* SCROLL CONTENT */}
+        <main style={s("flex:1;overflow-y:auto;padding:28px")}>
+          {/* ============ DASHBOARD ============ */}
+          {page === "dashboard" && (
+            <div style={s("animation:fadeIn .25s ease;max-width:1200px")}>
+              <div style={s("display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:22px")}>
+                {[
+                  { icon: (<I w={20}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.9" /><path d="M16 3.1a4 4 0 0 1 0 7.8" /></I>), iconBg: "var(--accent-soft)", iconCol: "var(--accent)", tag: "+12", value: "342", label: "Enrolled students" },
+                  { icon: IcFile(20), iconBg: "var(--green-soft)", iconCol: "var(--green)", tag: "+5", value: "128", label: "PDFs uploaded" },
+                  { icon: (<I w={20}><path d="M9 11l3 3 8-8" /><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></I>), iconBg: "var(--amber-soft)", iconCol: "var(--amber)", tag: "+3", value: "46", label: "Active quizzes" },
+                  { icon: (<I w={20}><path d="M3 3v18h18" /><path d="M7 14l4-4 3 3 5-6" /></I>), iconBg: "var(--accent-soft)", iconCol: "var(--accent)", tag: "+2.4%", value: "78%", label: "Avg quiz score" },
+                ].map((st, i) => (
+                  <div key={i} style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px")}>
+                    <div style={s("display:flex;justify-content:space-between;align-items:flex-start")}>
+                      <div style={s(`width:40px;height:40px;border-radius:11px;background:${st.iconBg};display:flex;align-items:center;justify-content:center;color:${st.iconCol}`)}>{st.icon}</div>
+                      <span style={s("font:700 11px Manrope;color:var(--green);background:var(--green-soft);padding:4px 8px;border-radius:20px")}>{st.tag}</span>
+                    </div>
+                    <div style={s("font:800 30px Poppins;margin-top:14px;letter-spacing:-.5px")}>{st.value}</div>
+                    <div style={s("font:500 13px Manrope;color:var(--muted);margin-top:2px")}>{st.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={s("display:grid;grid-template-columns:1.7fr 1fr;gap:18px;align-items:start")}>
+                {/* recent materials */}
+                <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
+                  <div style={s("display:flex;align-items:center;justify-content:space-between;margin-bottom:16px")}>
+                    <div style={s("font:700 16px Poppins")}>Recent uploads</div>
+                    <button className="h-primary" onClick={() => setUploadOpen(true)} style={s("display:flex;align-items:center;gap:7px;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:9px 14px;font:600 13px Manrope;cursor:pointer")}>
+                      {IcPlus()} Upload PDF
+                    </button>
+                  </div>
+                  <div style={s("display:flex;flex-direction:column;gap:4px")}>
+                    {recentMaterials.map((m) => {
+                      const mt = meta(m.course);
+                      return (
+                        <div key={m.id} className="h-row" style={s("display:flex;align-items:center;gap:14px;padding:11px 10px;border-radius:11px")}>
+                          <div style={s("width:38px;height:38px;border-radius:10px;background:var(--red-soft);display:flex;align-items:center;justify-content:center;color:var(--red);flex:none")}>{IcFile(18)}</div>
+                          <div style={s("min-width:0;flex:1")}>
+                            <div style={s("font:600 14px Manrope;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{m.title}</div>
+                            <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:2px")}>{m.subject} · {m.pages} pages · {m.size}</div>
+                          </div>
+                          <span style={s(`font:700 11px Manrope;color:${mt.color};background:${mt.bg};padding:4px 10px;border-radius:20px;flex:none`)}>{m.course}</span>
+                          <span style={s("font:500 12px Manrope;color:var(--faint);width:78px;text-align:right;flex:none")}>{m.date}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* donut + quick actions */}
+                <div style={s("display:flex;flex-direction:column;gap:18px")}>
+                  <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
+                    <div style={s("font:700 16px Poppins;margin-bottom:6px")}>Course completion</div>
+                    <div style={s("font:500 12px Manrope;color:var(--faint);margin-bottom:8px")}>Across all your subjects</div>
+                    <div style={s("display:flex;align-items:center;justify-content:center;position:relative;height:150px")}>
+                      <svg width="150" height="150" viewBox="0 0 150 150">
+                        <circle cx="75" cy="75" r="58" fill="none" stroke="rgba(148,163,184,.14)" strokeWidth="14" />
+                        <circle cx="75" cy="75" r="58" fill="none" stroke="var(--accent)" strokeWidth="14" strokeLinecap="round" strokeDasharray="364.4" strokeDashoffset="94.7" transform="rotate(-90 75 75)" />
+                      </svg>
+                      <div style={s("position:absolute;text-align:center")}>
+                        <div style={s("font:800 30px Poppins;letter-spacing:-.5px")}>74%</div>
+                        <div style={s("font:500 11px Manrope;color:var(--faint)")}>completed</div>
+                      </div>
+                    </div>
+                    <div style={s("display:flex;justify-content:space-around;margin-top:10px")}>
+                      <div style={s("text-align:center")}><div style={s("font:700 18px Poppins;color:var(--green)")}>96</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Chapters</div></div>
+                      <div style={s("text-align:center")}><div style={s("font:700 18px Poppins;color:var(--accent)")}>71</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Done</div></div>
+                      <div style={s("text-align:center")}><div style={s("font:700 18px Poppins;color:var(--amber)")}>25</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Pending</div></div>
+                    </div>
+                  </div>
+                  <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
+                    <div style={s("font:700 16px Poppins;margin-bottom:14px")}>Quick actions</div>
+                    <div style={s("display:flex;flex-direction:column;gap:9px")}>
+                      <button className="h-qa" onClick={() => setQuizOpen(true)} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:12px 13px;border-radius:11px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer;text-align:left")}>
+                        <span style={s("color:var(--accent)")}><I w={17} sw={2}><path d="M12 5v14M5 12h14" /></I></span> Create a new quiz
+                      </button>
+                      <button className="h-qa" onClick={() => setAnnOpen(true)} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:12px 13px;border-radius:11px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer;text-align:left")}>
+                        <span style={s("color:var(--accent)")}>{IcPaper}</span> Post an announcement
+                      </button>
+                      <button className="h-qa" onClick={() => setPage("progress")} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:12px 13px;border-radius:11px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer;text-align:left")}>
+                        <span style={s("color:var(--accent)")}>{IcChart}</span> View student analytics
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* student activity */}
+              <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;margin-top:18px")}>
+                <div style={s("font:700 16px Poppins;margin-bottom:14px")}>Recent student activity</div>
+                <div style={s("display:flex;flex-direction:column;gap:2px")}>
+                  {SEED_ACTIVITY.map((a, i) => {
+                    const mt = meta(a.course);
+                    const sc = a.score === "—" ? "var(--faint)" : scoreColor(parseInt(a.score));
+                    return (
+                      <div key={i} style={s("display:flex;align-items:center;gap:14px;padding:10px 8px;border-bottom:1px solid var(--border)")}>
+                        <div style={s(`width:34px;height:34px;border-radius:50%;background:${mt.bg};color:${mt.color};display:flex;align-items:center;justify-content:center;font:700 12px Poppins;flex:none`)}>{initials(a.name)}</div>
+                        <div style={s("flex:1;min-width:0")}><span style={s("font:600 14px Manrope")}>{a.name}</span> <span style={s("font:500 13px Manrope;color:var(--muted)")}>{a.action}</span></div>
+                        <span style={s(`font:700 13px Manrope;color:${sc};flex:none`)}>{a.score}</span>
+                        <span style={s("font:500 12px Manrope;color:var(--faint);width:70px;text-align:right;flex:none")}>{a.time}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============ MATERIALS ============ */}
+          {page === "materials" && (
+            <div style={s("animation:fadeIn .25s ease;max-width:1200px")}>
+              <div style={s("display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap")}>
+                {coursePills()}
+                <select value={matFilterSem} onChange={(e) => setMatFilterSem(e.target.value)} style={s("background:var(--card);border:1px solid var(--border);border-radius:11px;padding:10px 13px;color:var(--text);font:600 13px Manrope;cursor:pointer;outline:none")}>
+                  <option>All semesters</option>
+                  <option>Semester 1</option><option>Semester 2</option><option>Semester 3</option><option>Semester 4</option>
+                  <option>Semester 5</option><option>Semester 6</option><option>Semester 7</option><option>Semester 8</option>
+                </select>
+                <div style={s("flex:1")} />
+                <button className="h-primary" onClick={() => setUploadOpen(true)} style={s("display:flex;align-items:center;gap:7px;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:11px 16px;font:600 13px Manrope;cursor:pointer")}>
+                  {IcPlus()} Upload PDF
+                </button>
+              </div>
+
+              <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden")}>
+                <div style={s("display:grid;grid-template-columns:2.4fr 1.2fr .9fr .7fr .7fr 90px;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);font:700 11px Manrope;color:var(--faint);letter-spacing:.5px;text-transform:uppercase")}>
+                  <div>Material</div><div>Subject</div><div>Semester</div><div>Pages</div><div>Downloads</div><div style={s("text-align:right")}>Actions</div>
+                </div>
+                {fm.map((m) => (
+                  <div key={m.id} className="h-row" style={s("display:grid;grid-template-columns:2.4fr 1.2fr .9fr .7fr .7fr 90px;gap:14px;padding:15px 22px;border-bottom:1px solid var(--border);align-items:center")}>
+                    <div style={s("display:flex;align-items:center;gap:12px;min-width:0")}>
+                      <div style={s("width:36px;height:36px;border-radius:9px;background:var(--red-soft);display:flex;align-items:center;justify-content:center;color:var(--red);flex:none")}>{IcFile(17)}</div>
+                      <div style={s("min-width:0")}><div style={s("font:600 14px Manrope;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{m.title}</div><div style={s("font:500 11.5px Manrope;color:var(--faint)")}>Chapter {m.chapter} · {m.size}</div></div>
+                    </div>
+                    <div style={s("font:500 13px Manrope;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{m.subject}</div>
+                    <div style={s("font:500 13px Manrope;color:var(--muted)")}>{m.semester.replace("Semester", "Sem")}</div>
+                    <div style={s("font:600 13px Manrope")}>{m.pages}</div>
+                    <div style={s("font:600 13px Manrope")}>{m.downloads}</div>
+                    <div style={s("display:flex;gap:6px;justify-content:flex-end")}>
+                      <button className="h-accent" style={s("width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center")}>{IcEye}</button>
+                      <button className="h-del" onClick={() => deleteMaterial(m.id)} style={s("width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center")}>{IcTrash}</button>
+                    </div>
+                  </div>
+                ))}
+                {fm.length === 0 && (
+                  <div style={s("padding:60px 20px;text-align:center;color:var(--faint)")}>
+                    <div style={s("font:600 15px Manrope;color:var(--muted)")}>No materials match your filters</div>
+                    <div style={s("font:500 13px Manrope;margin-top:6px")}>Try another semester, or upload a new PDF.</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ============ QUIZZES ============ */}
+          {page === "quizzes" && (
+            <div style={s("animation:fadeIn .25s ease;max-width:1200px")}>
+              <div style={s("display:flex;align-items:center;gap:12px;margin-bottom:20px")}>
+                {coursePills()}
+                <div style={s("flex:1")} />
+                <button className="h-primary" onClick={() => setQuizOpen(true)} style={s("display:flex;align-items:center;gap:7px;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:11px 16px;font:600 13px Manrope;cursor:pointer")}>
+                  {IcPlus()} Create quiz
+                </button>
+              </div>
+
+              <div style={s("display:grid;grid-template-columns:repeat(2,1fr);gap:18px")}>
+                {fq.map((q) => {
+                  const pub = q.status === "Published";
+                  const sc = scoreColor(q.avg || 70);
+                  return (
+                    <div key={q.id} className="h-card" style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px")}>
+                      <div style={s("display:flex;align-items:flex-start;justify-content:space-between;gap:12px")}>
+                        <div style={s("min-width:0")}>
+                          <div style={s("font:700 16px Poppins;margin-bottom:4px")}>{q.title}</div>
+                          <div style={s("font:500 12.5px Manrope;color:var(--faint)")}>{q.subject}</div>
+                        </div>
+                        <span style={s(`font:700 11px Manrope;color:${pub ? "var(--green)" : "var(--amber)"};background:${pub ? "var(--green-soft)" : "var(--amber-soft)"};padding:5px 11px;border-radius:20px;flex:none`)}>{q.status}</span>
+                      </div>
+                      <div style={s("display:flex;gap:22px;margin:18px 0 14px")}>
+                        <div><div style={s("font:800 20px Poppins")}>{q.questions}</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Questions</div></div>
+                        <div><div style={s("font:800 20px Poppins")}>{q.attempts}</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Attempts</div></div>
+                        <div><div style={s(`font:800 20px Poppins;color:${sc}`)}>{q.attempts ? q.avg + "%" : "—"}</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Avg score</div></div>
+                      </div>
+                      <div style={s("height:7px;border-radius:4px;background:var(--bg2);overflow:hidden;margin-bottom:16px")}><div style={s(`height:100%;width:${q.avg || 0}%;background:${sc};border-radius:4px`)} /></div>
+                      <div style={s("display:flex;gap:8px")}>
+                        <button className="h-accent" onClick={() => toggleQuiz(q.id)} style={s("flex:1;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 12.5px Manrope;cursor:pointer")}>{pub ? "Unpublish" : "Publish"}</button>
+                        <button className="h-accent" style={s("padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);font:600 12.5px Manrope;cursor:pointer")}>Edit</button>
+                        <button className="h-del" onClick={() => deleteQuiz(q.id)} style={s("width:36px;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center")}>{IcTrash}</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ============ ANALYTICS ============ */}
+          {page === "progress" && (
+            <div style={s("animation:fadeIn .25s ease;max-width:1200px")}>
+              <div style={s("display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-bottom:18px")}>
+                <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
+                  <div style={s("font:700 16px Poppins;margin-bottom:20px")}>Average score by subject</div>
+                  <div style={s("display:flex;align-items:flex-end;justify-content:space-between;gap:18px;height:190px;padding:0 4px")}>
+                    {[
+                      { v: 82, h: "66%", c: "var(--accent)", g: "#3f6fac", l: "Prog." },
+                      { v: 76, h: "58%", c: "var(--accent)", g: "#3f6fac", l: "DBMS" },
+                      { v: 68, h: "47%", c: "var(--amber)", g: "#a5822f", l: "Net." },
+                      { v: 88, h: "76%", c: "var(--green)", g: "#3d7d63", l: "Web" },
+                      { v: 71, h: "50%", c: "var(--amber)", g: "#a5822f", l: "Math" },
+                      { v: 79, h: "62%", c: "var(--accent)", g: "#3f6fac", l: "Eng." },
+                    ].map((b, i) => (
+                      <div key={i} style={s("flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;height:100%;justify-content:flex-end")}>
+                        <div style={s(`font:700 12px Poppins;color:${b.c}`)}>{b.v}</div>
+                        <div style={s(`width:100%;max-width:46px;height:${b.h};background:linear-gradient(180deg,${b.c},${b.g});border-radius:8px 8px 0 0`)} />
+                        <div style={s("font:600 11px Manrope;color:var(--faint);text-align:center")}>{b.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
+                  <div style={s("font:700 16px Poppins;margin-bottom:20px")}>Submissions this week</div>
+                  <div style={s("display:flex;align-items:flex-end;justify-content:space-between;gap:10px;height:190px")}>
+                    {[
+                      { h: "40%", c: "var(--accent-soft)", l: "Mon" },
+                      { h: "62%", c: "var(--accent-soft)", l: "Tue" },
+                      { h: "55%", c: "var(--accent-soft)", l: "Wed" },
+                      { h: "85%", c: "var(--accent)", l: "Thu" },
+                      { h: "72%", c: "var(--accent-soft)", l: "Fri" },
+                      { h: "30%", c: "var(--accent-soft)", l: "Sat" },
+                      { h: "22%", c: "var(--accent-soft)", l: "Sun" },
+                    ].map((b, i) => (
+                      <div key={i} style={s("flex:1;display:flex;flex-direction:column;align-items:center;gap:9px;height:100%;justify-content:flex-end")}>
+                        <div style={s(`width:100%;height:${b.h};background:${b.c};border-radius:6px 6px 0 0`)} />
+                        <div style={s("font:600 11px Manrope;color:var(--faint)")}>{b.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden")}>
+                <div style={s("padding:18px 22px;border-bottom:1px solid var(--border);font:700 16px Poppins")}>Student progress</div>
+                <div style={s("display:grid;grid-template-columns:1.6fr .8fr 1.4fr .9fr .8fr;gap:14px;padding:13px 22px;border-bottom:1px solid var(--border);font:700 11px Manrope;color:var(--faint);letter-spacing:.5px;text-transform:uppercase")}>
+                  <div>Student</div><div>Course</div><div>Completion</div><div>Avg score</div><div>Last active</div>
+                </div>
+                {SEED_STUDENTS.map((st, i) => {
+                  const mt = meta(st.course);
+                  return (
+                    <div key={i} className="h-row" style={s("display:grid;grid-template-columns:1.6fr .8fr 1.4fr .9fr .8fr;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);align-items:center")}>
+                      <div style={s("display:flex;align-items:center;gap:11px;min-width:0")}><div style={s(`width:34px;height:34px;border-radius:50%;background:${mt.bg};color:${mt.color};display:flex;align-items:center;justify-content:center;font:700 12px Poppins;flex:none`)}>{initials(st.name)}</div><div style={s("font:600 14px Manrope;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{st.name}</div></div>
+                      <div><span style={s(`font:700 11px Manrope;color:${mt.color};background:${mt.bg};padding:4px 10px;border-radius:20px`)}>{st.course}</span></div>
+                      <div style={s("display:flex;align-items:center;gap:10px")}><div style={s("flex:1;height:7px;border-radius:4px;background:var(--bg2);overflow:hidden")}><div style={s(`height:100%;width:${st.comp}%;background:var(--accent);border-radius:4px`)} /></div><span style={s("font:600 12px Manrope;color:var(--muted);width:34px")}>{st.comp}%</span></div>
+                      <div style={s(`font:700 14px Manrope;color:${scoreColor(st.score)}`)}>{st.score}%</div>
+                      <div style={s("font:500 12.5px Manrope;color:var(--faint)")}>{LAST_ACTIVE[i % 7]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ============ COURSES ============ */}
+          {page === "courses" && (
+            <div style={s("animation:fadeIn .25s ease;max-width:1200px")}>
+              <div style={s("display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:22px")}>
+                {COURSE_CARDS.map((c) => (
+                  <div key={c.code} className="h-card" style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden")}>
+                    <div style={s(`height:6px;background:${c.color}`)} />
+                    <div style={s("padding:22px")}>
+                      <div style={s("display:flex;align-items:center;gap:12px;margin-bottom:16px")}>
+                        <div style={s(`width:46px;height:46px;border-radius:12px;background:${c.tagBg};color:${c.color};display:flex;align-items:center;justify-content:center;font:800 15px Poppins`)}>{c.code}</div>
+                        <div><div style={s("font:700 16px Poppins")}>{c.code}</div><div style={s("font:500 12px Manrope;color:var(--faint)")}>{c.name}</div></div>
+                      </div>
+                      <div style={s("display:flex;justify-content:space-between;padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:16px")}>
+                        <div style={s("text-align:center")}><div style={s("font:800 18px Poppins")}>8</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Semesters</div></div>
+                        <div style={s("text-align:center")}><div style={s("font:800 18px Poppins")}>{c.subjects}</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Subjects</div></div>
+                        <div style={s("text-align:center")}><div style={s("font:800 18px Poppins")}>{c.students}</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Students</div></div>
+                      </div>
+                      <button className="h-accent" style={s("width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer")}>Manage subjects</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
+                <div style={s("display:flex;align-items:center;justify-content:space-between;margin-bottom:16px")}>
+                  <div style={s("font:700 16px Poppins")}>BCSIT · Semester 4 subjects</div>
+                  <button style={s("display:flex;align-items:center;gap:7px;background:var(--accent-soft);color:var(--accent);border:none;border-radius:9px;padding:8px 13px;font:600 12.5px Manrope;cursor:pointer")}>{IcPlus(14)} Add subject</button>
+                </div>
+                <div style={s("display:grid;grid-template-columns:repeat(2,1fr);gap:10px")}>
+                  {SUBJECT_LIST.map((sub) => (
+                    <div key={sub.name} style={s("display:flex;align-items:center;gap:13px;padding:13px 15px;border-radius:11px;background:var(--bg2);border:1px solid var(--border)")}>
+                      <div style={s("width:36px;height:36px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center")}>{IcBook}</div>
+                      <div style={s("flex:1;min-width:0")}><div style={s("font:600 14px Manrope")}>{sub.name}</div><div style={s("font:500 11.5px Manrope;color:var(--faint)")}>{sub.chapters} chapters · {sub.pdfs} PDFs</div></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============ ANNOUNCEMENTS ============ */}
+          {page === "announcements" && (
+            <div style={s("animation:fadeIn .25s ease;max-width:900px")}>
+              <div style={s("display:flex;justify-content:flex-end;margin-bottom:18px")}>
+                <button className="h-primary" onClick={() => setAnnOpen(true)} style={s("display:flex;align-items:center;gap:7px;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:11px 16px;font:600 13px Manrope;cursor:pointer")}>
+                  {IcPlus()} New announcement
+                </button>
+              </div>
+              <div style={s("display:flex;flex-direction:column;gap:14px")}>
+                {announcements.map((a) => {
+                  const mt = meta(a.course);
+                  return (
+                    <div key={a.id} className="h-card" style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
+                      <div style={s("display:flex;align-items:flex-start;gap:14px")}>
+                        <div style={s("width:42px;height:42px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;flex:none")}><I w={20}><path d="M3 11l14-6v14L3 13z" /></I></div>
+                        <div style={s("flex:1;min-width:0")}>
+                          <div style={s("display:flex;align-items:center;gap:10px;flex-wrap:wrap")}><span style={s("font:700 16px Poppins")}>{a.title}</span><span style={s(`font:700 10.5px Manrope;color:${mt.color};background:${mt.bg};padding:4px 9px;border-radius:20px`)}>{a.course}</span></div>
+                          <div style={s("font:500 13.5px/1.6 Manrope;color:var(--muted);margin-top:8px")}>{a.body}</div>
+                          <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:12px")}>Posted by {a.author} · {a.date}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ============ PROFILE ============ */}
+          {page === "profile" && (
+            <div style={s("animation:fadeIn .25s ease;max-width:760px")}>
+              <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px;margin-bottom:18px;display:flex;align-items:center;gap:20px")}>
+                <div style={s("width:78px;height:78px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:800 26px Poppins;color:#fff;flex:none")}>AB</div>
+                <div style={s("flex:1")}>
+                  <div style={s("font:700 21px Poppins")}>Aadarsh Bist</div>
+                  <div style={s("font:500 13px Manrope;color:var(--muted);margin-top:2px")}>Founder &amp; Lead Educator · Shubhashree College of Management</div>
+                </div>
+                <button className="h-accent" style={s("padding:9px 15px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer")}>Change photo</button>
+              </div>
+              <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px")}>
+                <div style={s("font:700 16px Poppins;margin-bottom:20px")}>Account details</div>
+                <div style={s("display:grid;grid-template-columns:1fr 1fr;gap:16px")}>
+                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Full name</label><input className="h-input" defaultValue="Aadarsh Bist" style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Email</label><input className="h-input" defaultValue="aadarsh@shubhashree.com" style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Phone</label><input className="h-input" defaultValue="+977 9800000000" style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Department</label><input className="h-input" defaultValue="BCSIT" style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+                  <div style={s("grid-column:1/3")}><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Bio</label><textarea className="h-input" rows={3} defaultValue="Educator passionate about making study materials accessible and learning measurable for every student." style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;resize:vertical")} /></div>
+                </div>
+                <div style={s("display:flex;gap:10px;justify-content:flex-end;margin-top:22px")}>
+                  <button style={s("padding:11px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font:600 13px Manrope;cursor:pointer")}>Cancel</button>
+                  <button className="h-primary" onClick={() => showToast("Profile saved")} style={s("padding:11px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;font:600 13px Manrope;cursor:pointer")}>Save changes</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* ================= UPLOAD MODAL ================= */}
+      {uploadOpen && (
+        <div onClick={() => setUploadOpen(false)} style={s("position:fixed;inset:0;background:rgba(6,10,20,.66);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;animation:fadeIn .15s ease")}>
+          <div onClick={(e) => e.stopPropagation()} style={s("width:520px;max-width:92vw;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:26px;animation:popIn .22s cubic-bezier(.2,.8,.3,1)")}>
+            <div style={s("display:flex;align-items:center;justify-content:space-between;margin-bottom:20px")}>
+              <div><div style={s("font:700 18px Poppins")}>Upload study material</div><div style={s("font:500 12.5px Manrope;color:var(--faint);margin-top:2px")}>Add a PDF chapter for your students</div></div>
+              <button onClick={() => setUploadOpen(false)} style={s("width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:18px")}>✕</button>
+            </div>
+            <div className="h-drop" style={s("border:1.5px dashed var(--border2);border-radius:13px;padding:26px;text-align:center;margin-bottom:18px;cursor:pointer;background:var(--card)")}>
+              <div style={s("width:46px;height:46px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 10px")}><I w={22}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5-5 5 5" /><path d="M12 5v13" /></I></div>
+              <div style={s("font:600 14px Manrope")}>Drag &amp; drop a PDF, or <span style={s("color:var(--accent)")}>browse</span></div>
+              <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:4px")}>Max 25 MB · PDF only</div>
+            </div>
+            <div style={s("display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px")}>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Course</label><select value={upload.course} onChange={(e) => setUpload({ ...upload, course: e.target.value })} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option>BCSIT</option><option>BBA</option><option>BHM</option></select></div>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Semester</label><select value={upload.semester} onChange={(e) => setUpload({ ...upload, semester: e.target.value })} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option>Semester 1</option><option>Semester 2</option><option>Semester 3</option><option>Semester 4</option><option>Semester 5</option><option>Semester 6</option><option>Semester 7</option><option>Semester 8</option></select></div>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Subject</label><input className="h-input" value={upload.subject} onChange={(e) => setUpload({ ...upload, subject: e.target.value })} placeholder="e.g. Database Management" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Chapter no.</label><input className="h-input" value={upload.chapter} onChange={(e) => setUpload({ ...upload, chapter: e.target.value })} placeholder="e.g. 3" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+            </div>
+            <div style={s("margin-bottom:22px")}><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Title</label><input className="h-input" value={upload.title} onChange={(e) => setUpload({ ...upload, title: e.target.value })} placeholder="e.g. Normalization & Keys" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+            <div style={s("display:flex;gap:10px;justify-content:flex-end")}>
+              <button onClick={() => setUploadOpen(false)} style={s("padding:11px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font:600 13px Manrope;cursor:pointer")}>Cancel</button>
+              <button className="h-primary" onClick={submitUpload} style={s("padding:11px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;font:600 13px Manrope;cursor:pointer")}>Upload material</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= QUIZ MODAL ================= */}
+      {quizOpen && (
+        <div onClick={() => setQuizOpen(false)} style={s("position:fixed;inset:0;background:rgba(6,10,20,.66);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;animation:fadeIn .15s ease")}>
+          <div onClick={(e) => e.stopPropagation()} style={s("width:600px;max-width:94vw;max-height:88vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:26px;animation:popIn .22s cubic-bezier(.2,.8,.3,1)")}>
+            <div style={s("display:flex;align-items:center;justify-content:space-between;margin-bottom:20px")}>
+              <div><div style={s("font:700 18px Poppins")}>Create a quiz</div><div style={s("font:500 12.5px Manrope;color:var(--faint);margin-top:2px")}>Build an MCQ quiz for a chapter</div></div>
+              <button onClick={() => setQuizOpen(false)} style={s("width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:18px")}>✕</button>
+            </div>
+            <div style={s("display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px")}>
+              <div style={s("grid-column:1/3")}><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Quiz title</label><input className="h-input" value={quiz.title} onChange={(e) => setQuiz({ ...quiz, title: e.target.value })} placeholder="e.g. Chapter 3 · Normalization" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Course</label><select value={quiz.course} onChange={(e) => setQuiz({ ...quiz, course: e.target.value })} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option>BCSIT</option><option>BBA</option><option>BHM</option></select></div>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Subject</label><input className="h-input" value={quiz.subject} onChange={(e) => setQuiz({ ...quiz, subject: e.target.value })} placeholder="e.g. Database Management" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+            </div>
+            <div style={s("display:flex;align-items:center;justify-content:space-between;margin:18px 0 12px")}><div style={s("font:700 13px Poppins")}>Questions</div><div style={s("font:600 12px Manrope;color:var(--faint)")}>{quiz.questions.length} added</div></div>
+            <div style={s("display:flex;flex-direction:column;gap:12px;margin-bottom:14px")}>
+              {quiz.questions.map((qq, i) => (
+                <div key={i} style={s("background:var(--card);border:1px solid var(--border);border-radius:12px;padding:15px")}>
+                  <div style={s("display:flex;align-items:center;gap:10px;margin-bottom:11px")}>
+                    <div style={s("width:24px;height:24px;border-radius:7px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font:700 12px Poppins;flex:none")}>{i + 1}</div>
+                    <input className="h-input" value={qq.q} onChange={(e) => setQ(i, e.target.value)} placeholder="Type the question…" style={s("flex:1;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:9px 12px;color:var(--text);font:500 13px Manrope;outline:none")} />
+                    <button className="h-del" onClick={() => removeQuestion(i)} style={s("width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;flex:none")}>✕</button>
+                  </div>
+                  <div style={s("display:grid;grid-template-columns:1fr 1fr;gap:8px")}>
+                    {[0, 1, 2, 3].map((oi) => (
+                      <div key={oi} style={s("display:flex;align-items:center;gap:8px")}>
+                        <span onClick={() => setCorrect(i, oi)} style={s(`width:9px;height:9px;border-radius:50%;background:${qq.correct === oi ? "var(--green)" : "rgba(148,163,184,.3)"};flex:none;cursor:pointer`)} />
+                        <input value={qq.opts[oi]} onChange={(e) => setOpt(i, oi, e.target.value)} onClick={() => setCorrect(i, oi)} placeholder={oi === 0 ? "Option A (click dot = correct)" : `Option ${String.fromCharCode(65 + oi)}`} style={s("flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font:500 12.5px Manrope;outline:none")} />
+                      </div>
+                    ))}
+                  </div>
+                  <div style={s("font:500 11px Manrope;color:var(--faint);margin-top:9px")}>Click a dot to mark the correct answer.</div>
+                </div>
+              ))}
+            </div>
+            <button className="h-qa" onClick={addQuestion} style={s("width:100%;padding:11px;border-radius:10px;border:1.5px dashed var(--border2);background:transparent;color:var(--accent);font:600 13px Manrope;cursor:pointer;margin-bottom:20px")}>+ Add question</button>
+            <div style={s("display:flex;gap:10px;justify-content:flex-end")}>
+              <button onClick={() => setQuizOpen(false)} style={s("padding:11px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font:600 13px Manrope;cursor:pointer")}>Cancel</button>
+              <button className="h-primary" onClick={submitQuiz} style={s("padding:11px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;font:600 13px Manrope;cursor:pointer")}>Publish quiz</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= ANNOUNCEMENT MODAL ================= */}
+      {annOpen && (
+        <div onClick={() => setAnnOpen(false)} style={s("position:fixed;inset:0;background:rgba(6,10,20,.66);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;animation:fadeIn .15s ease")}>
+          <div onClick={(e) => e.stopPropagation()} style={s("width:520px;max-width:92vw;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:26px;animation:popIn .22s cubic-bezier(.2,.8,.3,1)")}>
+            <div style={s("display:flex;align-items:center;justify-content:space-between;margin-bottom:20px")}>
+              <div><div style={s("font:700 18px Poppins")}>New announcement</div><div style={s("font:500 12.5px Manrope;color:var(--faint);margin-top:2px")}>Share an update with your students</div></div>
+              <button onClick={() => setAnnOpen(false)} style={s("width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:18px")}>✕</button>
+            </div>
+            <div style={s("display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px")}>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Title</label><input className="h-input" value={ann.title} onChange={(e) => setAnn({ ...ann, title: e.target.value })} placeholder="e.g. Mid-term quiz schedule" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Course</label><select value={ann.course} onChange={(e) => setAnn({ ...ann, course: e.target.value })} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option>BCSIT</option><option>BBA</option><option>BHM</option><option>All</option></select></div>
+            </div>
+            <div style={s("margin-bottom:22px")}><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Message</label><textarea className="h-input" value={ann.body} onChange={(e) => setAnn({ ...ann, body: e.target.value })} rows={4} placeholder="Write your announcement…" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;resize:vertical")} /></div>
+            <div style={s("display:flex;gap:10px;justify-content:flex-end")}>
+              <button onClick={() => setAnnOpen(false)} style={s("padding:11px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font:600 13px Manrope;cursor:pointer")}>Cancel</button>
+              <button className="h-primary" onClick={submitAnn} style={s("padding:11px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;font:600 13px Manrope;cursor:pointer")}>Post announcement</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= TOAST ================= */}
+      {toast && (
+        <div style={s("position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:11px;background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:13px 18px;box-shadow:0 12px 40px rgba(0,0,0,.4);animation:slideUp .25s ease")}>
+          <div style={s("width:24px;height:24px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;flex:none")}><I w={14} sw={3} stroke="#fff"><path d="M20 6L9 17l-5-5" /></I></div>
+          <span style={s("font:600 13.5px Manrope")}>{toast}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* --------------------------- scoped styles --------------------------- */
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap');
+.tdscope{
+  --bg:#0b1220; --bg2:#0f1a2e; --sidebar:#0c1628; --card:#15213b; --card2:#1a2744;
+  --border:rgba(148,163,184,.12); --border2:rgba(148,163,184,.20);
+  --text:#eef2f8; --muted:#95a3ba; --faint:#647388;
+  --accent:#4f86c6; --accent-h:#5f97d8; --accent-soft:rgba(79,134,198,.15);
+  --green:#54a888; --green-soft:rgba(84,168,136,.14);
+  --amber:#c9a24e; --amber-soft:rgba(201,162,78,.14);
+  --red:#c9645e; --red-soft:rgba(201,100,94,.14);
+  color:var(--text);-webkit-font-smoothing:antialiased;
+}
+.tdscope *{box-sizing:border-box}
+.tdscope a{color:var(--accent);text-decoration:none}
+.tdscope a:hover{color:var(--accent-h)}
+.tdscope ::-webkit-scrollbar{width:10px;height:10px}
+.tdscope ::-webkit-scrollbar-thumb{background:rgba(148,163,184,.18);border-radius:8px;border:2px solid var(--bg)}
+.tdscope ::-webkit-scrollbar-thumb:hover{background:rgba(148,163,184,.3)}
+.tdscope input::placeholder,.tdscope textarea::placeholder{color:var(--faint)}
+.tdscope .h-primary:hover{background:var(--accent-h)!important}
+.tdscope .h-bell:hover{border-color:var(--border2)!important}
+.tdscope .h-row:hover{background:var(--bg2)!important}
+.tdscope .h-qa:hover{border-color:var(--accent)!important;background:var(--accent-soft)!important}
+.tdscope .h-accent:hover{border-color:var(--accent)!important;color:var(--accent)!important}
+.tdscope .h-del:hover{border-color:var(--red)!important;color:var(--red)!important}
+.tdscope .h-card:hover{border-color:var(--border2)!important}
+.tdscope .h-drop:hover{border-color:var(--accent)!important}
+.tdscope .h-input:focus{border-color:var(--accent)!important}
+.tdscope .h-search:focus-within{border-color:var(--accent)!important}
+@keyframes popIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+`;
