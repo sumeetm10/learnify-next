@@ -85,6 +85,16 @@ export interface SearchResult {
   subjectTitle?: string;
 }
 
+export interface AnnouncementData {
+  id: string;
+  message: string;
+  isActive: boolean;
+  circleColor: string;
+  boxColor: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ===== NEW ADMIN TYPES =====
 
 // User roles — matches the Prisma Role enum exactly
