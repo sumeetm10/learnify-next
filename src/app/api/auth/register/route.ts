@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
+import { sendVerificationEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -33,7 +35,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Email is already registered" }, { status: 409 });
   }
 
-  // Hash password and create user as STUDENT tied to their course
+  // Hash password and create user as STUDENT tied to their course.
+  // emailVerified stays null — they must confirm via the email link before login.
   const hashedPassword = await bcrypt.hash(password, 10);
   await prisma.user.create({
     data: {
@@ -45,5 +48,23 @@ export async function POST(request: Request) {
     },
   });
 
-  return NextResponse.json({ success: true });
+  // Create a one-time verification token (valid 24h) and email the link.
+  const token = randomBytes(32).toString("hex");
+  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await prisma.verificationToken.create({
+    data: { email: normalizedEmail, token, expires },
+  });
+
+  try {
+    await sendVerificationEmail(normalizedEmail, token, name || null);
+  } catch {
+    // Don't fail registration if the email send hiccups — user can resend.
+    return NextResponse.json({
+      success: true,
+      emailSent: false,
+      message: "Account created, but the verification email failed to send. Try resending.",
+    });
+  }
+
+  return NextResponse.json({ success: true, emailSent: true });
 }

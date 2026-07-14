@@ -19,6 +19,7 @@ model User {
   name           String?
   role           Role      @default(STUDENT)
   isActive       Boolean   @default(true)
+  emailVerified  DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -30,6 +31,16 @@ model User {
   contactMessages ContactMessage[]
 
   @@index([courseId])
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
 }
 
 model Course {

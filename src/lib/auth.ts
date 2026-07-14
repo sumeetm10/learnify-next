@@ -31,6 +31,12 @@ export const authOptions: NextAuthOptions = {
         );
         if (!isValid) return null;
 
+        // Block login until the email is verified. Throwing surfaces a distinct
+        // error to the login page (vs. a generic wrong-password null).
+        if (!user.emailVerified) {
+          throw new Error("EMAIL_NOT_VERIFIED");
+        }
+
         return {
           id: user.id,
           email: user.email,

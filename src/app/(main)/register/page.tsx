@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MailCheck } from "lucide-react";
 import Link from "next/link";
 import type { CourseData } from "@/types";
 
@@ -19,7 +18,8 @@ export default function RegisterPage() {
   const [courses, setCourses] = useState<CourseData[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [registered, setRegistered] = useState(false);
+  const [resendMsg, setResendMsg] = useState("");
 
   useEffect(() => {
     fetch("/api/courses")
@@ -60,24 +60,61 @@ export default function RegisterPage() {
         return;
       }
 
-      // Auto sign-in after successful registration
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError("Account created but sign-in failed. Please sign in manually.");
-        setLoading(false);
-      } else {
-        router.push("/");
-      }
+      // Account created — user must verify their email before logging in.
+      setRegistered(true);
+      setLoading(false);
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
     }
   };
+
+  const handleResend = async () => {
+    setResendMsg("");
+    try {
+      const res = await fetch("/api/auth/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      setResendMsg(res.ok ? "Verification email sent again." : "Could not resend. Try later.");
+    } catch {
+      setResendMsg("Could not resend. Try later.");
+    }
+  };
+
+  if (registered) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 px-4">
+        <Card className="w-full max-w-md dark:bg-slate-800 dark:border-slate-700">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#427da6] to-[#5a9cc5] flex items-center justify-center">
+              <MailCheck size={32} className="text-white" />
+            </div>
+            <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
+            <CardDescription>
+              We sent a verification link to <span className="font-medium">{email}</span>.
+              Click it to activate your account, then sign in.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Didn&apos;t get it? Check spam, or resend below.
+            </p>
+            {resendMsg && (
+              <p className="text-sm text-[#427da6]">{resendMsg}</p>
+            )}
+            <Button variant="outline" onClick={handleResend} className="w-full">
+              Resend verification email
+            </Button>
+            <Link href="/login" className="text-sm text-blue-600 hover:underline block">
+              Go to Sign In
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 px-4">

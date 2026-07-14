@@ -16,12 +16,13 @@ async function main() {
   const hashedPassword = await bcrypt.hash("teacher123", 10);
   await prisma.user.upsert({
     where: { email: "teacher@learnify.com" },
-    update: {},
+    update: { emailVerified: new Date() },
     create: {
       email: "teacher@learnify.com",
       hashedPassword,
       name: "Teacher",
       role: "TEACHER",
+      emailVerified: new Date(),
     },
   });
   console.log("✅ Teacher user created (teacher@learnify.com / teacher123)");
@@ -30,12 +31,13 @@ async function main() {
   const adminPassword = await bcrypt.hash("admin123", 10);
   await prisma.user.upsert({
     where: { email: "admin@learnify.com" },
-    update: {},
+    update: { emailVerified: new Date() },
     create: {
       email: "admin@learnify.com",
       hashedPassword: adminPassword,
       name: "Admin",
       role: "ADMIN",
+      emailVerified: new Date(),
     },
   });
   console.log("✅ Admin user created (admin@learnify.com / admin123)");
