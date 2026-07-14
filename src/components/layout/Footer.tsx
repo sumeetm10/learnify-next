@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { Facebook, Instagram, Linkedin, Youtube } from "lucide-react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-export function Footer() {
+export async function Footer() {
+  // Course links are only shown to logged-in users.
+  const session = await getServerSession(authOptions);
+  const isLoggedIn = !!session?.user;
+
   return (
     <footer className="bg-gradient-to-br from-slate-900 to-slate-800 text-white/80 pt-16 pb-6">
       <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
@@ -24,22 +30,32 @@ export function Footer() {
           </ul>
         </div>
 
-        {/* Courses */}
-        <div>
-          <h3 className="text-white font-bold text-lg mb-4">Courses</h3>
-          <ul className="space-y-2 text-sm">
-            <li><Link href="/course/bba" className="hover:text-white transition-colors">BBA</Link></li>
-            <li><Link href="/course/bcsit" className="hover:text-white transition-colors">BCSIT</Link></li>
-            <li><Link href="/course/bhm" className="hover:text-white transition-colors">BHM</Link></li>
-          </ul>
-        </div>
+        {/* Courses — only for logged-in users */}
+        {isLoggedIn ? (
+          <div>
+            <h3 className="text-white font-bold text-lg mb-4">Courses</h3>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/course/bba" className="hover:text-white transition-colors">BBA</Link></li>
+              <li><Link href="/course/bcsit" className="hover:text-white transition-colors">BCSIT</Link></li>
+              <li><Link href="/course/bhm" className="hover:text-white transition-colors">BHM</Link></li>
+            </ul>
+          </div>
+        ) : (
+          <div>
+            <h3 className="text-white font-bold text-lg mb-4">Get Started</h3>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/login" className="hover:text-white transition-colors">Sign In</Link></li>
+              <li><Link href="/register" className="hover:text-white transition-colors">Register</Link></li>
+            </ul>
+          </div>
+        )}
 
         {/* Contact */}
         <div>
           <h3 className="text-white font-bold text-lg mb-4">Contact Us</h3>
           <ul className="space-y-2 text-sm">
             <li>Baneshwor, Kathmandu</li>
-            <li>+91 9876 543 210</li>
+            <li>+977 9876 543 210</li>
             <li>info@shubhashree.com</li>
           </ul>
           <div className="flex gap-3 mt-4">

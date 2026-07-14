@@ -27,10 +27,14 @@ export function Navbar() {
   const isAdmin = userRole === "ADMIN";
   const isTeacher = userRole === "TEACHER";
 
-  // Students only see their own course in the selector; everyone else sees all.
-  const visibleCourses =
-    userRole === "STUDENT" && userCourseId
-      ? courses.filter((c) => c.id === userCourseId)
+  // Course selector is only for logged-in users: a student sees only their own
+  // course, teachers/admins see all, and logged-out visitors see none.
+  const visibleCourses = !session
+    ? []
+    : userRole === "STUDENT"
+      ? userCourseId
+        ? courses.filter((c) => c.id === userCourseId)
+        : []
       : courses;
 
   const navLinks = [
@@ -48,21 +52,23 @@ export function Navbar() {
 
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-6">
-          <select
-            className="bg-white/20 text-white border-none rounded-full px-3 py-1.5 text-sm cursor-pointer outline-none [&>option]:text-black"
-            defaultValue=""
-            onChange={(e) => {
-              if (e.target.value) router.push(e.target.value);
-              e.target.value = "";
-            }}
-          >
-            <option value="" disabled>Select Course</option>
-            {visibleCourses.map((course) => (
-              <option key={course.id} value={`/course/${course.slug}`}>
-                {course.icon} {course.name}
-              </option>
-            ))}
-          </select>
+          {visibleCourses.length > 0 && (
+            <select
+              className="bg-white/20 text-white border-none rounded-full px-3 py-1.5 text-sm cursor-pointer outline-none [&>option]:text-black"
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) router.push(e.target.value);
+                e.target.value = "";
+              }}
+            >
+              <option value="" disabled>Select Course</option>
+              {visibleCourses.map((course) => (
+                <option key={course.id} value={`/course/${course.slug}`}>
+                  {course.icon} {course.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           {navLinks.map((link) => (
             <Link
@@ -158,24 +164,26 @@ export function Navbar() {
       {/* Mobile Menu */}
       {mobileOpen && (
         <div className="md:hidden mt-2 bg-[#427da6]/95 dark:bg-[#1a3550]/95 backdrop-blur-md rounded-2xl px-6 py-4 shadow-lg space-y-3">
-          <select
-            className="w-full bg-white/20 text-white border-none rounded-full px-3 py-2 text-sm cursor-pointer outline-none [&>option]:text-black"
-            defaultValue=""
-            onChange={(e) => {
-              if (e.target.value) {
-                router.push(e.target.value);
-                setMobileOpen(false);
-              }
-              e.target.value = "";
-            }}
-          >
-            <option value="" disabled>Select Course</option>
-            {visibleCourses.map((course) => (
-              <option key={course.id} value={`/course/${course.slug}`}>
-                {course.icon} {course.name}
-              </option>
-            ))}
-          </select>
+          {visibleCourses.length > 0 && (
+            <select
+              className="w-full bg-white/20 text-white border-none rounded-full px-3 py-2 text-sm cursor-pointer outline-none [&>option]:text-black"
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  router.push(e.target.value);
+                  setMobileOpen(false);
+                }
+                e.target.value = "";
+              }}
+            >
+              <option value="" disabled>Select Course</option>
+              {visibleCourses.map((course) => (
+                <option key={course.id} value={`/course/${course.slug}`}>
+                  {course.icon} {course.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           {navLinks.map((link) => (
             <Link
