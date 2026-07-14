@@ -48,18 +48,23 @@ export function AnnouncementProvider({ children }: { children: ReactNode }) {
   const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     fetch("/api/announcements")
       .then((r) => r.json())
       .then((data) => {
+        if (cancelled) return;
         if (data?.message) {
           const dismissedId = localStorage.getItem("dismissed_announcement");
           if (dismissedId !== data.id) {
             setAnnouncement(data);
-            requestAnimationFrame(() => setEntered(true));
+            requestAnimationFrame(() => {
+              if (!cancelled) setEntered(true);
+            });
           }
         }
       })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   const hasBanner = !!announcement && !dismissed;

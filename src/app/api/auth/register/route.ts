@@ -8,12 +8,21 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { name, email, password, courseId } = body;
 
-  if (!email || !password) {
-    return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
+  if (!email || !password || !name) {
+    return NextResponse.json({ error: "Name, email, and password are required" }, { status: 400 });
   }
 
   if (password.length < 6) {
     return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return NextResponse.json({ error: "Password must contain at least one capital letter" }, { status: 400 });
+  }
+
+  const digitCount = (password.match(/\d/g) || []).length;
+  if (digitCount < 2) {
+    return NextResponse.json({ error: "Password must contain at least 2 numbers" }, { status: 400 });
   }
 
   if (!courseId) {

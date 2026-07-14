@@ -1,6 +1,11 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Construct the client lazily. Building it at module load would throw during
+// `next build` if RESEND_API_KEY isn't set (e.g. on Vercel before the env var
+// is added), which would fail the whole build. This defers that to send-time.
+function getResend(): Resend {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 // Sender address. With a verified domain on Resend, use something like
 // "Learnify <noreply@yourdomain.com>". Without a domain, Resend's test sender
@@ -14,7 +19,7 @@ export async function sendVerificationEmail(
   name?: string | null
 ): Promise<void> {
   const link = `${APP_URL}/api/auth/verify?token=${token}`;
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: email,
     subject: "Verify your email — Learnify",

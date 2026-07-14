@@ -149,6 +149,7 @@ export default function AdminSettingsPage() {
   };
 
   const handleDeleteAnnouncement = async (id: string) => {
+    if (!confirm("Delete this announcement?")) return;
     try {
       const res = await fetch("/api/admin/announcements", {
         method: "DELETE",
@@ -301,7 +302,8 @@ export default function AdminSettingsPage() {
             <Input
               value={newAnnouncement}
               onChange={(e) => setNewAnnouncement(e.target.value)}
-              placeholder="Type a new announcement..."
+              placeholder="Type a new announcement... (max 500 chars)"
+              maxLength={500}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleAddAnnouncement();
               }}

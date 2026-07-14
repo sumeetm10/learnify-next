@@ -11,12 +11,14 @@ import {
   MessageSquare,
   LogOut,
   GraduationCap,
+  Megaphone,
 } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/content", label: "Content", icon: BookOpen },
+  { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/settings", label: "Settings", icon: Settings },
   { href: "/admin/messages", label: "Messages", icon: MessageSquare },
 ];
