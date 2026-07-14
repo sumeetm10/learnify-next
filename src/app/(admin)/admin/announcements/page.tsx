@@ -172,7 +172,8 @@ export default function AdminAnnouncementsPage() {
           <Textarea
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Enter announcement message..."
+            placeholder="Enter announcement message... (max 500 chars)"
+            maxLength={500}
             rows={2}
           />
 
@@ -267,6 +268,7 @@ export default function AdminAnnouncementsPage() {
                         <Input
                           value={editMessage}
                           onChange={(e) => setEditMessage(e.target.value)}
+                          maxLength={500}
                           className="flex-1"
                         />
                         <Button size="sm" onClick={() => handleUpdate(a.id)}>

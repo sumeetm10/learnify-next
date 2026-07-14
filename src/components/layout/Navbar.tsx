@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Menu, X, LogIn, LogOut, LayoutDashboard, UserPlus } from "lucide-react";
+import { Menu, X, LogIn, LogOut, LayoutDashboard } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import type { CourseData } from "@/types";
 
@@ -93,13 +93,6 @@ export function Navbar() {
               >
                 <LogIn size={14} />
                 Login
-              </Link>
-              <Link
-                href="/register"
-                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-3 py-1.5 rounded-full transition-colors"
-              >
-                <UserPlus size={14} />
-                Register
               </Link>
             </div>
           ) : isAdmin ? (
@@ -211,14 +204,6 @@ export function Navbar() {
               >
                 <LogIn size={14} />
                 Login
-              </Link>
-              <Link
-                href="/register"
-                className="flex items-center gap-2 text-white text-sm font-medium py-1"
-                onClick={() => setMobileOpen(false)}
-              >
-                <UserPlus size={14} />
-                Register
               </Link>
             </div>
           ) : isAdmin ? (
