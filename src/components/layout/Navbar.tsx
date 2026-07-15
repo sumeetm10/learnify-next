@@ -131,9 +131,13 @@ export function Navbar() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <span className="text-white/90 text-sm font-medium">
-                {session.user?.name || "My Account"}
-              </span>
+              <Link
+                href="/student"
+                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-3 py-1.5 rounded-full transition-colors"
+              >
+                <LayoutDashboard size={14} />
+                Dashboard
+              </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="flex items-center gap-1.5 bg-red-500/80 hover:bg-red-500 text-white text-sm font-medium px-3 py-1.5 rounded-full transition-colors cursor-pointer"
@@ -250,9 +254,14 @@ export function Navbar() {
             </div>
           ) : (
             <div className="flex flex-col gap-2 pt-2 border-t border-white/20">
-              <span className="text-white/90 text-sm font-medium py-1">
-                {session.user?.name || "My Account"}
-              </span>
+              <Link
+                href="/student"
+                className="flex items-center gap-2 text-white text-sm font-medium py-1"
+                onClick={() => setMobileOpen(false)}
+              >
+                <LayoutDashboard size={14} />
+                Dashboard
+              </Link>
               <button
                 onClick={() => {
                   setMobileOpen(false);

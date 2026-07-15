@@ -28,6 +28,11 @@ export default withAuth(
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
 
+    // Student dashboard: only STUDENT role allowed
+    if (pathname.startsWith("/student") && token?.role !== "STUDENT") {
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
+    }
+
     return NextResponse.next();
   },
   {
@@ -43,5 +48,5 @@ export default withAuth(
 // MATCHER: Only run middleware on these paths (for performance).
 // Routes not listed here skip middleware entirely.
 export const config = {
-  matcher: ["/teacher/:path*", "/admin/:path*"],
+  matcher: ["/teacher/:path*", "/admin/:path*", "/student/:path*"],
 };
