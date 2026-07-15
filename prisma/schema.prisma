@@ -168,5 +168,9 @@ model SiteSettings {
   contactPhone   String   @default("+977 9876 543 210")
   contactAddress String   @default("Baneshwor, Kathmandu")
   logoUrl        String   @default("/images/logo.png")
+  facebookUrl    String   @default("")
+  instagramUrl   String   @default("")
+  linkedinUrl    String   @default("")
+  youtubeUrl     String   @default("")
   updatedAt      DateTime @updatedAt
 }

@@ -120,6 +120,10 @@ export interface SiteSettingsData {
   contactPhone: string;
   contactAddress: string;
   logoUrl: string;
+  facebookUrl: string;
+  instagramUrl: string;
+  linkedinUrl: string;
+  youtubeUrl: string;
 }
 
 // Contact message with admin-specific fields
@@ -153,6 +157,8 @@ export interface AnalyticsData {
     user: { name: string | null; email: string };
     chapter: { title: string; subject: { title: string } };
   }[];
+  registrationChart: { day: string; date: string; count: number }[];
+  activityChart: { day: string; date: string; count: number }[];
 }
 
 // ===== EXISTING TYPES =====

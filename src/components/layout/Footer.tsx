@@ -2,18 +2,27 @@ import Link from "next/link";
 import { Facebook, Instagram, Linkedin, Youtube } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function Footer() {
   // Course links are only shown to logged-in users.
   const session = await getServerSession(authOptions);
   const isLoggedIn = !!session?.user;
 
+  // Fetch site settings
+  let settings = await prisma.siteSettings.findUnique({
+    where: { id: "default" },
+  });
+  if (!settings) {
+    settings = await prisma.siteSettings.create({ data: { id: "default" } });
+  }
+
   return (
     <footer className="bg-gradient-to-br from-slate-900 to-slate-800 text-white/80 pt-16 pb-6">
       <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
         {/* About */}
         <div>
-          <h3 className="text-white font-bold text-lg mb-4">Learnify</h3>
+          <h3 className="text-white font-bold text-lg mb-4">{settings.collegeName}</h3>
           <p className="text-sm leading-relaxed">
             Empowering students with easy access to study materials, interactive quizzes, and progress tracking.
           </p>
@@ -54,21 +63,36 @@ export async function Footer() {
         <div>
           <h3 className="text-white font-bold text-lg mb-4">Contact Us</h3>
           <ul className="space-y-2 text-sm">
-            <li>Baneshwor, Kathmandu</li>
-            <li>+977 9876 543 210</li>
-            <li>info@shubhashree.com</li>
+            <li>{settings.contactAddress}</li>
+            <li>{settings.contactPhone}</li>
+            <li>{settings.contactEmail}</li>
           </ul>
           <div className="flex gap-3 mt-4">
-            <a href="#" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-blue-600 transition-colors"><Facebook size={16} /></a>
-            <a href="#" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-pink-600 transition-colors"><Instagram size={16} /></a>
-            <a href="#" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-blue-500 transition-colors"><Linkedin size={16} /></a>
-            <a href="#" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-red-600 transition-colors"><Youtube size={16} /></a>
+            {[
+              { url: settings.facebookUrl, Icon: Facebook, hover: "hover:bg-blue-600", label: "Facebook" },
+              { url: settings.instagramUrl, Icon: Instagram, hover: "hover:bg-pink-600", label: "Instagram" },
+              { url: settings.linkedinUrl, Icon: Linkedin, hover: "hover:bg-blue-500", label: "LinkedIn" },
+              { url: settings.youtubeUrl, Icon: Youtube, hover: "hover:bg-red-600", label: "YouTube" },
+            ]
+              .filter((s) => s.url)
+              .map(({ url, Icon, hover, label }) => (
+                <a
+                  key={label}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                  className={`w-9 h-9 rounded-full bg-white/10 flex items-center justify-center transition-colors ${hover}`}
+                >
+                  <Icon size={16} />
+                </a>
+              ))}
           </div>
         </div>
       </div>
 
       <div className="border-t border-white/10 mt-10 pt-6 text-center text-xs text-white/50">
-        &copy; {new Date().getFullYear()} Learnify - Shubhashree College of Management. All rights reserved.
+        &copy; {new Date().getFullYear()} Learnify - {settings.collegeName}. All rights reserved.
       </div>
     </footer>
   );

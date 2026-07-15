@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,9 +9,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
 import { toast } from "sonner";
+import type { SiteSettingsData } from "@/types";
 
 export default function ContactPage() {
   const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState<SiteSettingsData | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((r) => r.json())
+      .then((d) => setSettings(d))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -46,11 +55,18 @@ export default function ContactPage() {
   };
 
   const contactInfo = [
-    { icon: MapPin, label: "Location", value: "Baneshwor, Kathmandu" },
-    { icon: Phone, label: "Phone", value: "+91 9876 543 210" },
-    { icon: Mail, label: "Email", value: "info@shubhashree.com" },
+    { icon: MapPin, label: "Location", value: settings?.contactAddress || "Baneshwor, Kathmandu" },
+    { icon: Phone, label: "Phone", value: settings?.contactPhone || "+977 9876 543 210" },
+    { icon: Mail, label: "Email", value: settings?.contactEmail || "info@shubhashree.com" },
     { icon: Clock, label: "Working Hours", value: "Mon-Fri: 9AM - 6PM" },
   ];
+
+  const socials = [
+    { label: "Facebook", url: settings?.facebookUrl },
+    { label: "Instagram", url: settings?.instagramUrl },
+    { label: "LinkedIn", url: settings?.linkedinUrl },
+    { label: "YouTube", url: settings?.youtubeUrl },
+  ].filter((s) => s.url);
 
   return (
     <div className="pt-24 pb-16">
@@ -117,20 +133,24 @@ export default function ContactPage() {
             ))}
 
             {/* Social Links */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm">
-              <h3 className="font-medium text-sm mb-3">Follow Us</h3>
-              <div className="flex gap-3">
-                {["Facebook", "Instagram", "LinkedIn", "YouTube"].map((social) => (
-                  <a
-                    key={social}
-                    href="#"
-                    className="px-3 py-1.5 text-xs bg-[#427da6]/10 text-[#427da6] rounded-full hover:bg-[#427da6] hover:text-white transition-colors"
-                  >
-                    {social}
-                  </a>
-                ))}
+            {socials.length > 0 && (
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm">
+                <h3 className="font-medium text-sm mb-3">Follow Us</h3>
+                <div className="flex gap-3 flex-wrap">
+                  {socials.map((social) => (
+                    <a
+                      key={social.label}
+                      href={social.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 text-xs bg-[#427da6]/10 text-[#427da6] rounded-full hover:bg-[#427da6] hover:text-white transition-colors"
+                    >
+                      {social.label}
+                    </a>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>

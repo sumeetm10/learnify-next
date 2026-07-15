@@ -31,6 +31,10 @@ export async function PATCH(request: Request) {
     "contactPhone",
     "contactAddress",
     "logoUrl",
+    "facebookUrl",
+    "instagramUrl",
+    "linkedinUrl",
+    "youtubeUrl",
   ];
   const updateData: Record<string, string> = {};
   for (const field of allowedFields) {
