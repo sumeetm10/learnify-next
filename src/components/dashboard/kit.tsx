@@ -241,8 +241,10 @@ export const CSS = `
   .tdscope .td-top{padding:0 14px!important;gap:10px!important}
   .tdscope .h-search{display:none!important}
   .tdscope .td-main{padding:16px!important}
-  .tdscope .td-g4{grid-template-columns:repeat(2,1fr)!important}
-  .tdscope .td-gmain,.tdscope .td-g2,.tdscope .td-g3{grid-template-columns:1fr!important}
+  /* minmax(0,1fr) lets the tracks shrink below their content so the grid
+     never forces the page wider than the viewport on small screens. */
+  .tdscope .td-g4{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .tdscope .td-gmain,.tdscope .td-g2,.tdscope .td-g3{grid-template-columns:minmax(0,1fr)!important}
   .tdscope .td-scroll{overflow-x:auto!important}
   .tdscope .td-trow{min-width:560px}
 }
@@ -250,8 +252,11 @@ export const CSS = `
   .tdscope .td-overlay{display:none}
 }
 @media (max-width: 480px){
-  .tdscope .td-g4{grid-template-columns:1fr!important}
+  /* keep the stat cards 2-up (not 1) so they stay compact and sections
+     aren't pushed far down the page; trim their padding a little too. */
+  .tdscope .h-stat{padding:15px!important}
   .tdscope .td-title{font-size:16px!important}
+  .tdscope .td-sub{display:none}
   .tdscope .td-main{padding:13px!important}
 }
 `;

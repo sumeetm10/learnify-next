@@ -269,11 +269,10 @@ export default function StudentPage() {
           <button className="td-burger h-bell" onClick={() => setSidebarOpen((o) => !o)} aria-label="Menu" style={s("display:none;width:40px;height:40px;flex:none;border-radius:11px;background:var(--card);border:1px solid var(--border);cursor:pointer;align-items:center;justify-content:center;color:var(--muted)")}>
             <I w={20} sw={2}><path d="M3 6h18M3 12h18M3 18h18" /></I>
           </button>
-          <div style={s("min-width:0")}>
+          <div style={s("flex:1;min-width:0")}>
             <div className="td-title" style={s("font:700 19px Poppins;letter-spacing:-.3px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{pageTitle}</div>
             <div className="td-sub" style={s("font:500 12px Manrope;color:var(--faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{pageSub}</div>
           </div>
-          <div style={s("flex:1")} />
           <div className="h-search" style={s("display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:9px 13px;width:220px")}>
             <I w={16} sw={2} stroke="var(--faint)">
               <circle cx="11" cy="11" r="7" />
