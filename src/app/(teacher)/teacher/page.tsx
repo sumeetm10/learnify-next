@@ -363,6 +363,7 @@ export default function TeacherPage() {
 
   // UI state for the topbar menus, avatar photo, in-place quiz edit & subjects
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer
   const [bellOpen, setBellOpen] = useState(false);
   const [unread, setUnread] = useState(true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -697,8 +698,13 @@ export default function TeacherPage() {
     <div className="tdscope" style={s("position:fixed;inset:0;padding-top:80px;display:flex;overflow:hidden;font-family:Manrope,sans-serif;background:var(--bg)")}>
       <style>{CSS}</style>
 
+      {/* dim overlay behind the mobile drawer */}
+      {sidebarOpen && (
+        <div className="td-overlay" onClick={() => setSidebarOpen(false)} style={s("position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:75")} />
+      )}
+
       {/* ================= SIDEBAR ================= */}
-      <aside style={s("width:256px;flex:none;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 16px")}>
+      <aside className={sidebarOpen ? "td-side open" : "td-side"} style={s("width:256px;flex:none;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 16px")}>
         <div style={s("display:flex;align-items:center;gap:11px;padding:6px 8px 20px")}>
           <div style={s("width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--accent),#3f6fac);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(79,134,198,.35)")}>
             <I w={21} sw={2.2} stroke="#fff">
@@ -727,7 +733,7 @@ export default function TeacherPage() {
             return (
               <button
                 key={key}
-                onClick={() => setPage(key)}
+                onClick={() => { setPage(key); setSidebarOpen(false); }}
                 style={s(`display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:none;border-radius:11px;cursor:pointer;font:600 14px Manrope;text-align:left;transition:background .15s;background:${n.bg};color:${n.col}`)}
               >
                 {icon}
@@ -744,7 +750,7 @@ export default function TeacherPage() {
           const n = navFor("profile");
           return (
             <button
-              onClick={() => setPage("profile")}
+              onClick={() => { setPage("profile"); setSidebarOpen(false); }}
               style={s(`display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:none;border-radius:11px;cursor:pointer;font:600 14px Manrope;text-align:left;transition:background .15s;background:${n.bg};color:${n.col}`)}
             >
               {IcProfile}
@@ -754,7 +760,7 @@ export default function TeacherPage() {
         })()}
 
         <button
-          onClick={() => setPage("profile")}
+          onClick={() => { setPage("profile"); setSidebarOpen(false); }}
           style={s("margin-top:12px;display:flex;align-items:center;gap:11px;padding:11px;border-radius:13px;background:var(--card);border:1px solid var(--border);cursor:pointer;text-align:left;width:100%")}
         >
           <div style={s("width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:700 13px Poppins;color:#fff;flex:none;overflow:hidden")}>
@@ -770,10 +776,13 @@ export default function TeacherPage() {
       {/* ================= MAIN ================= */}
       <div style={s("flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg)")}>
         {/* TOPBAR */}
-        <header style={s("position:relative;z-index:30;flex:none;height:70px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 28px;background:var(--topbar);backdrop-filter:blur(8px)")}>
+        <header className="td-top" style={s("position:relative;z-index:30;flex:none;height:70px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 28px;background:var(--topbar);backdrop-filter:blur(8px)")}>
+          <button className="td-burger h-bell" onClick={() => setSidebarOpen((o) => !o)} aria-label="Menu" style={s("display:none;width:40px;height:40px;flex:none;border-radius:11px;background:var(--card);border:1px solid var(--border);cursor:pointer;align-items:center;justify-content:center;color:var(--muted)")}>
+            <I w={20} sw={2}><path d="M3 6h18M3 12h18M3 18h18" /></I>
+          </button>
           <div style={s("min-width:0")}>
-            <div style={s("font:700 19px Poppins;letter-spacing:-.3px;line-height:1.1")}>{pageTitle}</div>
-            <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:2px")}>{pageSub}</div>
+            <div className="td-title" style={s("font:700 19px Poppins;letter-spacing:-.3px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{pageTitle}</div>
+            <div className="td-sub" style={s("font:500 12px Manrope;color:var(--faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{pageSub}</div>
           </div>
           <div style={s("flex:1")} />
           <div className="h-search" style={s("display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:9px 13px;width:230px")}>
@@ -889,11 +898,11 @@ export default function TeacherPage() {
         </header>
 
         {/* SCROLL CONTENT */}
-        <main style={s("flex:1;overflow-y:auto;padding:28px")}>
+        <main className="td-main" style={s("flex:1;overflow-y:auto;padding:28px")}>
           {/* ============ DASHBOARD ============ */}
           {page === "dashboard" && (
             <div style={s("animation:fadeIn .25s ease;max-width:1200px")}>
-              <div style={s("display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:22px")}>
+              <div className="td-g4" style={s("display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:22px")}>
                 {[
                   { icon: (<I w={20}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.9" /><path d="M16 3.1a4 4 0 0 1 0 7.8" /></I>), iconBg: "#3b82f6", iconCol: "#fff", tag: "+12", value: "342", label: "Enrolled students" },
                   { icon: IcFile(20), iconBg: "#22c55e", iconCol: "#fff", tag: "+5", value: liveMode ? String(materials.length) : "128", label: "PDFs uploaded" },
@@ -911,7 +920,7 @@ export default function TeacherPage() {
                 ))}
               </div>
 
-              <div style={s("display:grid;grid-template-columns:1.7fr 1fr;gap:18px;align-items:start")}>
+              <div className="td-gmain" style={s("display:grid;grid-template-columns:1.7fr 1fr;gap:18px;align-items:start")}>
                 {/* recent materials */}
                 <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
                   <div style={s("display:flex;align-items:center;justify-content:space-between;margin-bottom:16px")}>
@@ -1012,12 +1021,12 @@ export default function TeacherPage() {
                 </button>
               </div>
 
-              <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden")}>
-                <div style={s("display:grid;grid-template-columns:2.4fr 1.2fr .9fr .7fr .7fr 90px;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);font:700 11px Manrope;color:var(--faint);letter-spacing:.5px;text-transform:uppercase")}>
+              <div className="td-scroll" style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden")}>
+                <div className="td-trow" style={s("display:grid;grid-template-columns:2.4fr 1.2fr .9fr .7fr .7fr 90px;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);font:700 11px Manrope;color:var(--faint);letter-spacing:.5px;text-transform:uppercase")}>
                   <div>Material</div><div>Subject</div><div>Semester</div><div>Pages</div><div>Downloads</div><div style={s("text-align:right")}>Actions</div>
                 </div>
                 {fm.map((m) => (
-                  <div key={m.id} className="h-row" style={s("display:grid;grid-template-columns:2.4fr 1.2fr .9fr .7fr .7fr 90px;gap:14px;padding:15px 22px;border-bottom:1px solid var(--border);align-items:center")}>
+                  <div key={m.id} className="h-row td-trow" style={s("display:grid;grid-template-columns:2.4fr 1.2fr .9fr .7fr .7fr 90px;gap:14px;padding:15px 22px;border-bottom:1px solid var(--border);align-items:center")}>
                     <div style={s("display:flex;align-items:center;gap:12px;min-width:0")}>
                       <div style={s("width:36px;height:36px;border-radius:9px;background:var(--red-soft);display:flex;align-items:center;justify-content:center;color:var(--red);flex:none")}>{IcFile(17)}</div>
                       <div style={s("min-width:0")}><div style={s("font:600 14px Manrope;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{m.title}</div><div style={s("font:500 11.5px Manrope;color:var(--faint)")}>{m.size ? `Chapter ${m.chapter} · ${m.size}` : m.chapter}</div></div>
@@ -1053,7 +1062,7 @@ export default function TeacherPage() {
                 </button>
               </div>
 
-              <div style={s("display:grid;grid-template-columns:repeat(2,1fr);gap:18px")}>
+              <div className="td-g2" style={s("display:grid;grid-template-columns:repeat(2,1fr);gap:18px")}>
                 {fq.map((q) => {
                   const pub = q.status === "Published";
                   const sc = scoreColor(q.avg || 70);
@@ -1087,7 +1096,7 @@ export default function TeacherPage() {
           {/* ============ ANALYTICS ============ */}
           {page === "progress" && (
             <div style={s("animation:fadeIn .25s ease;max-width:1200px")}>
-              <div style={s("display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-bottom:18px")}>
+              <div className="td-g2" style={s("display:grid;grid-template-columns:1.3fr 1fr;gap:18px;margin-bottom:18px")}>
                 <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
                   <div style={s("font:700 16px Poppins;margin-bottom:20px")}>Average score by subject</div>
                   <div style={s("display:flex;align-items:flex-end;justify-content:space-between;gap:18px;height:190px;padding:0 4px")}>
@@ -1128,15 +1137,15 @@ export default function TeacherPage() {
                 </div>
               </div>
 
-              <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden")}>
+              <div className="td-scroll" style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden")}>
                 <div style={s("padding:18px 22px;border-bottom:1px solid var(--border);font:700 16px Poppins")}>Student progress</div>
-                <div style={s("display:grid;grid-template-columns:1.6fr .8fr 1.4fr .9fr .8fr;gap:14px;padding:13px 22px;border-bottom:1px solid var(--border);font:700 11px Manrope;color:var(--faint);letter-spacing:.5px;text-transform:uppercase")}>
+                <div className="td-trow" style={s("display:grid;grid-template-columns:1.6fr .8fr 1.4fr .9fr .8fr;gap:14px;padding:13px 22px;border-bottom:1px solid var(--border);font:700 11px Manrope;color:var(--faint);letter-spacing:.5px;text-transform:uppercase")}>
                   <div>Student</div><div>Course</div><div>Completion</div><div>Avg score</div><div>Last active</div>
                 </div>
                 {SEED_STUDENTS.map((st, i) => {
                   const mt = meta(st.course);
                   return (
-                    <div key={i} className="h-row" style={s("display:grid;grid-template-columns:1.6fr .8fr 1.4fr .9fr .8fr;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);align-items:center")}>
+                    <div key={i} className="h-row td-trow" style={s("display:grid;grid-template-columns:1.6fr .8fr 1.4fr .9fr .8fr;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);align-items:center")}>
                       <div style={s("display:flex;align-items:center;gap:11px;min-width:0")}><div style={s(`width:34px;height:34px;border-radius:50%;background:${mt.bg};color:${mt.color};display:flex;align-items:center;justify-content:center;font:700 12px Poppins;flex:none`)}>{initials(st.name)}</div><div style={s("font:600 14px Manrope;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{st.name}</div></div>
                       <div><span style={s(`font:700 11px Manrope;color:${mt.color};background:${mt.bg};padding:4px 10px;border-radius:20px`)}>{st.course}</span></div>
                       <div style={s("display:flex;align-items:center;gap:10px")}><div style={s("flex:1;height:7px;border-radius:4px;background:var(--bg2);overflow:hidden")}><div style={s(`height:100%;width:${st.comp}%;background:var(--accent);border-radius:4px`)} /></div><span style={s("font:600 12px Manrope;color:var(--muted);width:34px")}>{st.comp}%</span></div>
@@ -1152,7 +1161,7 @@ export default function TeacherPage() {
           {/* ============ COURSES ============ */}
           {page === "courses" && (
             <div style={s("animation:fadeIn .25s ease;max-width:1200px")}>
-              <div style={s("display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:22px")}>
+              <div className="td-g3" style={s("display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:22px")}>
                 {displayCourses.map((c) => (
                   <div key={c.code} className="h-card" style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden")}>
                     <div style={s(`height:6px;background:${c.color}`)} />
@@ -1176,7 +1185,7 @@ export default function TeacherPage() {
                   <div style={s("font:700 16px Poppins")}>{course} · Subjects</div>
                   <button onClick={addSubject} style={s("display:flex;align-items:center;gap:7px;background:var(--accent-soft);color:var(--accent);border:none;border-radius:9px;padding:8px 13px;font:600 12.5px Manrope;cursor:pointer")}>{IcPlus(14)} Add subject</button>
                 </div>
-                <div style={s("display:grid;grid-template-columns:repeat(2,1fr);gap:10px")}>
+                <div className="td-g2" style={s("display:grid;grid-template-columns:repeat(2,1fr);gap:10px")}>
                   {displaySubjects.map((sub) => (
                     <div key={sub.name} style={s("display:flex;align-items:center;gap:13px;padding:13px 15px;border-radius:11px;background:var(--bg2);border:1px solid var(--border)")}>
                       <div style={s("width:36px;height:36px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center")}>{IcBook}</div>
@@ -1235,7 +1244,7 @@ export default function TeacherPage() {
               </div>
               <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px")}>
                 <div style={s("font:700 16px Poppins;margin-bottom:20px")}>Account details</div>
-                <div style={s("display:grid;grid-template-columns:1fr 1fr;gap:16px")}>
+                <div className="td-g2" style={s("display:grid;grid-template-columns:1fr 1fr;gap:16px")}>
                   <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Full name</label><input className="h-input" value={profile.name || sessionName} onChange={(e) => setProfile({ ...profile, name: e.target.value })} style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
                   <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Email</label><input className="h-input" value={profile.email || sessionEmail} onChange={(e) => setProfile({ ...profile, email: e.target.value })} style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
                   <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Phone</label><input className="h-input" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
@@ -1255,7 +1264,7 @@ export default function TeacherPage() {
       {/* ================= UPLOAD MODAL ================= */}
       {uploadOpen && (
         <div onClick={() => setUploadOpen(false)} style={s("position:fixed;inset:0;background:rgba(6,10,20,.66);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;animation:fadeIn .15s ease")}>
-          <div onClick={(e) => e.stopPropagation()} style={s("width:520px;max-width:92vw;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:26px;animation:popIn .22s cubic-bezier(.2,.8,.3,1)")}>
+          <div onClick={(e) => e.stopPropagation()} style={s("width:520px;max-width:92vw;max-height:90vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:26px;animation:popIn .22s cubic-bezier(.2,.8,.3,1)")}>
             <div style={s("display:flex;align-items:center;justify-content:space-between;margin-bottom:20px")}>
               <div><div style={s("font:700 18px Poppins")}>Upload study material</div><div style={s("font:500 12.5px Manrope;color:var(--faint);margin-top:2px")}>Add a PDF chapter for your students</div></div>
               <button onClick={() => setUploadOpen(false)} style={s("width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:18px")}>✕</button>
@@ -1282,7 +1291,7 @@ export default function TeacherPage() {
                 </>
               )}
             </div>
-            <div style={s("display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px")}>
+            <div className="td-g2" style={s("display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px")}>
               <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Course</label><select value={upload.courseId} onChange={(e) => setUpload({ ...upload, courseId: e.target.value, semesterId: "", subjectId: "", chapterId: "" })} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option value="">Select course</option>{liveCourses.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}</select></div>
               <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Semester</label><select value={upload.semesterId} onChange={(e) => setUpload({ ...upload, semesterId: e.target.value, subjectId: "", chapterId: "" })} disabled={!upload.courseId} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option value="">Select semester</option>{upSemesters.map((sm) => (<option key={sm.id} value={String(sm.id)}>{sm.name}</option>))}</select></div>
               <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Subject</label><select value={upload.subjectId} onChange={(e) => setUpload({ ...upload, subjectId: e.target.value, chapterId: "" })} disabled={!upload.semesterId} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option value="">{upSubjects.length ? "Select subject" : "No subjects here"}</option>{upSubjects.map((sub) => (<option key={sub.id} value={sub.id}>{sub.title}</option>))}</select></div>
@@ -1306,7 +1315,7 @@ export default function TeacherPage() {
               <div><div style={s("font:700 18px Poppins")}>{editingQuizId != null ? "Edit quiz" : "Create a quiz"}</div><div style={s("font:500 12.5px Manrope;color:var(--faint);margin-top:2px")}>{editingQuizId != null ? "Update this quiz's details" : "Build an MCQ quiz for a chapter"}</div></div>
               <button onClick={() => { setEditingQuizId(null); setQuizOpen(false); }} style={s("width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:18px")}>✕</button>
             </div>
-            <div style={s("display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px")}>
+            <div className="td-g2" style={s("display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px")}>
               <div style={s("grid-column:1/3")}><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Quiz title</label><input className="h-input" value={quiz.title} onChange={(e) => setQuiz({ ...quiz, title: e.target.value })} placeholder="e.g. Chapter 3 · Normalization" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
               <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Course</label><select value={quiz.course} onChange={(e) => setQuiz({ ...quiz, course: e.target.value })} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option>BCSIT</option><option>BBA</option><option>BHM</option></select></div>
               <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Subject</label><input className="h-input" value={quiz.subject} onChange={(e) => setQuiz({ ...quiz, subject: e.target.value })} placeholder="e.g. Database Management" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
@@ -1327,7 +1336,7 @@ export default function TeacherPage() {
                     <input className="h-input" value={qq.q} onChange={(e) => setQ(i, e.target.value)} placeholder="Type the question…" style={s("flex:1;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:9px 12px;color:var(--text);font:500 13px Manrope;outline:none")} />
                     <button className="h-del" onClick={() => removeQuestion(i)} style={s("width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;flex:none")}>✕</button>
                   </div>
-                  <div style={s("display:grid;grid-template-columns:1fr 1fr;gap:8px")}>
+                  <div className="td-g2" style={s("display:grid;grid-template-columns:1fr 1fr;gap:8px")}>
                     {[0, 1, 2, 3].map((oi) => (
                       <div key={oi} style={s("display:flex;align-items:center;gap:8px")}>
                         <span onClick={() => setCorrect(i, oi)} style={s(`width:9px;height:9px;border-radius:50%;background:${qq.correct === oi ? "var(--green)" : "rgba(148,163,184,.3)"};flex:none;cursor:pointer`)} />
@@ -1353,12 +1362,12 @@ export default function TeacherPage() {
       {/* ================= ANNOUNCEMENT MODAL ================= */}
       {annOpen && (
         <div onClick={() => setAnnOpen(false)} style={s("position:fixed;inset:0;background:rgba(6,10,20,.66);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;animation:fadeIn .15s ease")}>
-          <div onClick={(e) => e.stopPropagation()} style={s("width:520px;max-width:92vw;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:26px;animation:popIn .22s cubic-bezier(.2,.8,.3,1)")}>
+          <div onClick={(e) => e.stopPropagation()} style={s("width:520px;max-width:92vw;max-height:90vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:26px;animation:popIn .22s cubic-bezier(.2,.8,.3,1)")}>
             <div style={s("display:flex;align-items:center;justify-content:space-between;margin-bottom:20px")}>
               <div><div style={s("font:700 18px Poppins")}>New announcement</div><div style={s("font:500 12.5px Manrope;color:var(--faint);margin-top:2px")}>Share an update with your students</div></div>
               <button onClick={() => setAnnOpen(false)} style={s("width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:18px")}>✕</button>
             </div>
-            <div style={s("display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px")}>
+            <div className="td-g2" style={s("display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px")}>
               <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Title</label><input className="h-input" value={ann.title} onChange={(e) => setAnn({ ...ann, title: e.target.value })} placeholder="e.g. Mid-term quiz schedule" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
               <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Course</label><select value={ann.course} onChange={(e) => setAnn({ ...ann, course: e.target.value })} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option>BCSIT</option><option>BBA</option><option>BHM</option><option>All</option></select></div>
             </div>
@@ -1441,5 +1450,28 @@ const CSS = `
 @media (prefers-reduced-motion: reduce){
   .tdscope .h-stat{animation:none}
   .tdscope .h-card:hover,.tdscope .h-stat:hover{transform:none}
+}
+/* ---- responsive: the sidebar becomes an off-canvas drawer; grids/tables reflow ---- */
+.tdscope .td-burger{display:none}
+@media (max-width: 900px){
+  .tdscope{padding-top:72px!important}
+  .tdscope .td-side{position:fixed;top:0;left:0;bottom:0;z-index:80;transform:translateX(-100%);transition:transform .25s ease;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .tdscope .td-side.open{transform:translateX(0)}
+  .tdscope .td-burger{display:flex!important}
+  .tdscope .td-top{padding:0 14px!important;gap:10px!important}
+  .tdscope .h-search{display:none!important}
+  .tdscope .td-main{padding:16px!important}
+  .tdscope .td-g4{grid-template-columns:repeat(2,1fr)!important}
+  .tdscope .td-gmain,.tdscope .td-g2,.tdscope .td-g3{grid-template-columns:1fr!important}
+  .tdscope .td-scroll{overflow-x:auto!important}
+  .tdscope .td-trow{min-width:560px}
+}
+@media (min-width: 901px){
+  .tdscope .td-overlay{display:none}
+}
+@media (max-width: 480px){
+  .tdscope .td-g4{grid-template-columns:1fr!important}
+  .tdscope .td-title{font-size:16px!important}
+  .tdscope .td-main{padding:13px!important}
 }
 `;
