@@ -694,7 +694,7 @@ export default function TeacherPage() {
   );
 
   return (
-    <div className="tdscope" style={s("position:fixed;inset:0;display:flex;overflow:hidden;font-family:Manrope,sans-serif;background:var(--bg)")}>
+    <div className="tdscope" style={s("position:fixed;inset:0;padding-top:80px;display:flex;overflow:hidden;font-family:Manrope,sans-serif;background:var(--bg)")}>
       <style>{CSS}</style>
 
       {/* ================= SIDEBAR ================= */}
@@ -895,10 +895,10 @@ export default function TeacherPage() {
             <div style={s("animation:fadeIn .25s ease;max-width:1200px")}>
               <div style={s("display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:22px")}>
                 {[
-                  { icon: (<I w={20}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.9" /><path d="M16 3.1a4 4 0 0 1 0 7.8" /></I>), iconBg: "var(--accent-soft)", iconCol: "var(--accent)", tag: "+12", value: "342", label: "Enrolled students" },
-                  { icon: IcFile(20), iconBg: "var(--green-soft)", iconCol: "var(--green)", tag: "+5", value: liveMode ? String(materials.length) : "128", label: "PDFs uploaded" },
-                  { icon: (<I w={20}><path d="M9 11l3 3 8-8" /><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></I>), iconBg: "var(--amber-soft)", iconCol: "var(--amber)", tag: "+3", value: "46", label: "Active quizzes" },
-                  { icon: (<I w={20}><path d="M3 3v18h18" /><path d="M7 14l4-4 3 3 5-6" /></I>), iconBg: "var(--accent-soft)", iconCol: "var(--accent)", tag: "+2.4%", value: "78%", label: "Avg quiz score" },
+                  { icon: (<I w={20}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.9" /><path d="M16 3.1a4 4 0 0 1 0 7.8" /></I>), iconBg: "#3b82f6", iconCol: "#fff", tag: "+12", value: "342", label: "Enrolled students" },
+                  { icon: IcFile(20), iconBg: "#22c55e", iconCol: "#fff", tag: "+5", value: liveMode ? String(materials.length) : "128", label: "PDFs uploaded" },
+                  { icon: (<I w={20}><path d="M9 11l3 3 8-8" /><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></I>), iconBg: "#f59e0b", iconCol: "#fff", tag: "+3", value: "46", label: "Active quizzes" },
+                  { icon: (<I w={20}><path d="M3 3v18h18" /><path d="M7 14l4-4 3 3 5-6" /></I>), iconBg: "#a855f7", iconCol: "#fff", tag: "+2.4%", value: "78%", label: "Avg quiz score" },
                 ].map((st, i) => (
                   <div key={i} className="h-stat" style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px")}>
                     <div style={s("display:flex;justify-content:space-between;align-items:flex-start")}>
@@ -1398,16 +1398,16 @@ const CSS = `
   color:var(--text);-webkit-font-smoothing:antialiased;
   transition:background-color .3s ease,color .3s ease;
 }
-/* Dark palette — applied when the site is in dark mode (.dark on <html>). */
+/* Dark palette — near-black cards on a slate-950 base, like the admin panel. */
 .dark .tdscope{
-  --bg:#0b1220; --bg2:#0f1a2e; --sidebar:#0c1628; --card:#15213b; --card2:#1a2744;
-  --border:rgba(148,163,184,.12); --border2:rgba(148,163,184,.20);
-  --text:#eef2f8; --muted:#95a3ba; --faint:#647388;
-  --accent:#4f86c6; --accent-h:#5f97d8; --accent-soft:rgba(79,134,198,.15);
-  --green:#54a888; --green-soft:rgba(84,168,136,.14);
-  --amber:#c9a24e; --amber-soft:rgba(201,162,78,.14);
-  --red:#c9645e; --red-soft:rgba(201,100,94,.14);
-  --topbar:rgba(11,18,32,.7);
+  --bg:#060910; --bg2:#0d1421; --sidebar:#080c15; --card:#0f1626; --card2:#141d2e;
+  --border:rgba(148,163,184,.11); --border2:rgba(148,163,184,.19);
+  --text:#eef2f8; --muted:#94a3b8; --faint:#5f6d80;
+  --accent:#4f86c6; --accent-h:#5f97d8; --accent-soft:rgba(79,134,198,.16);
+  --green:#22c55e; --green-soft:rgba(34,197,94,.15);
+  --amber:#f59e0b; --amber-soft:rgba(245,158,11,.15);
+  --red:#ef4444; --red-soft:rgba(239,68,68,.15);
+  --topbar:rgba(6,9,16,.72);
 }
 .tdscope *{box-sizing:border-box}
 .tdscope a{color:var(--accent);text-decoration:none}
