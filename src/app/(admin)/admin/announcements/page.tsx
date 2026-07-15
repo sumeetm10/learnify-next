@@ -158,7 +158,7 @@ export default function AdminAnnouncementsPage() {
   return (
     <div className="space-y-6">
       {/* Create New */}
-      <Card>
+      <Card className="dark:bg-slate-900">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Megaphone size={20} className="text-[#427da6]" />
@@ -227,7 +227,7 @@ export default function AdminAnnouncementsPage() {
       </Card>
 
       {/* Existing Announcements */}
-      <Card>
+      <Card className="bg-slate-900">
         <CardHeader>
           <CardTitle>All Announcements</CardTitle>
           <CardDescription>

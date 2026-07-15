@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { X, Megaphone } from "lucide-react";
 
 interface AnnouncementData {
@@ -47,6 +47,42 @@ export function AnnouncementProvider({ children }: { children: ReactNode }) {
   const [entered, setEntered] = useState(false);
   const [hovered, setHovered] = useState(false);
 
+  // Drag support — the widget can be dragged, clamped inside a 100px-radius
+  // circle around its default position.
+  const MAX_R = 100;
+  const [drag, setDrag] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef({ active: false, sx: 0, sy: 0, bx: 0, by: 0, moved: false });
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    dragRef.current = { active: true, sx: e.clientX, sy: e.clientY, bx: drag.x, by: drag.y, moved: false };
+    setDragging(true);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d.active) return;
+    let nx = d.bx + (e.clientX - d.sx);
+    let ny = d.by + (e.clientY - d.sy);
+    const dist = Math.hypot(nx, ny);
+    if (dist > MAX_R) {
+      nx = (nx / dist) * MAX_R;
+      ny = (ny / dist) * MAX_R;
+    }
+    if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 4) d.moved = true;
+    setDrag({ x: nx, y: ny });
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    dragRef.current.active = false;
+    setDragging(false);
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+  };
+  const handleCircleClick = () => {
+    // Suppress the toggle if this was a drag, not a click.
+    if (dragRef.current.moved) return;
+    toggleBox();
+  };
+
   useEffect(() => {
     let cancelled = false;
     fetch("/api/announcements")
@@ -84,16 +120,19 @@ export function AnnouncementProvider({ children }: { children: ReactNode }) {
             className="fixed bottom-6 left-6 z-[60] flex items-center"
             style={{
               opacity: entered ? 1 : 0,
-              transform: entered ? "translateX(0)" : "translateX(-20px)",
-              transition: "opacity 0.5s ease-out, transform 0.5s ease-out",
+              transform: entered ? `translate(${drag.x}px, ${drag.y}px)` : "translateX(-20px)",
+              transition: dragging ? "opacity 0.5s ease-out" : "opacity 0.5s ease-out, transform 0.5s ease-out",
             }}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
           >
-            {/* Circle icon — always visible */}
+            {/* Circle icon — always visible, doubles as the drag handle */}
             <div
-              className="shrink-0 relative cursor-pointer"
-              onClick={toggleBox}
+              className="shrink-0 relative cursor-grab active:cursor-grabbing touch-none"
+              onClick={handleCircleClick}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
               style={{ color: announcement.circleColor }}
             >
               <div
