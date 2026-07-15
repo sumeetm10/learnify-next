@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
+import type { CSSProperties, ReactNode, ChangeEvent } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { useTheme } from "next-themes";
 
 /* ------------------------------------------------------------------ *
  * Teacher Dashboard — exact reproduction of the provided design.
@@ -230,10 +232,10 @@ const SEED_QUIZZES: Quiz[] = [
 ];
 
 const SEED_ANNOUNCEMENTS: Announcement[] = [
-  { id: 1, title: "Mid-term quiz schedule released", course: "BCSIT", body: "The mid-term quizzes for Semester 4 will open Monday. Database Management and Computer Networks quizzes will be available for 48 hours each. Make sure to review chapters 1–4.", author: "Aadarsh Bist", date: "Jul 9, 2026" },
-  { id: 2, title: "New React material uploaded", course: "BCSIT", body: "I have uploaded the React Fundamentals chapter under Web Technology (Semester 5). It covers components, props and state with examples. Read before next class.", author: "Aadarsh Bist", date: "Jul 5, 2026" },
-  { id: 3, title: "Marketing assignment deadline", course: "BBA", body: "The Principles of Marketing assignment is due this Friday. Submit through the portal. Late submissions will not be accepted.", author: "Aadarsh Bist", date: "Jul 2, 2026" },
-  { id: 4, title: "Welcome to the new semester", course: "All", body: "Welcome back everyone! All updated materials and quizzes are now live on Learnify. Reach out if you have trouble accessing any chapter.", author: "Aadarsh Bist", date: "Jun 24, 2026" },
+  { id: 1, title: "Mid-term quiz schedule released", course: "BCSIT", body: "The mid-term quizzes for Semester 4 will open Monday. Database Management and Computer Networks quizzes will be available for 48 hours each. Make sure to review chapters 1–4.", author: "", date: "Jul 9, 2026" },
+  { id: 2, title: "New React material uploaded", course: "BCSIT", body: "I have uploaded the React Fundamentals chapter under Web Technology (Semester 5). It covers components, props and state with examples. Read before next class.", author: "", date: "Jul 5, 2026" },
+  { id: 3, title: "Marketing assignment deadline", course: "BBA", body: "The Principles of Marketing assignment is due this Friday. Submit through the portal. Late submissions will not be accepted.", author: "", date: "Jul 2, 2026" },
+  { id: 4, title: "Welcome to the new semester", course: "All", body: "Welcome back everyone! All updated materials and quizzes are now live on Learnify. Reach out if you have trouble accessing any chapter.", author: "", date: "Jun 24, 2026" },
 ];
 
 const SEED_STUDENTS: Student[] = [
@@ -298,6 +300,22 @@ const scoreColor = (n: number) =>
 
 /* ------------------------------ component ------------------------------ */
 export default function TeacherPage() {
+  /* -------- session + theme (mirrors the rest of the site) -------- */
+  const { data: session } = useSession();
+  const { theme, setTheme } = useTheme();
+  // false during SSR/hydration, true after mount — avoids a hydration mismatch
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
+  const isDark = mounted && theme === "dark";
+
+  const sessionUser = session?.user as
+    | { name?: string | null; email?: string | null; role?: string }
+    | undefined;
+  const sessionName = sessionUser?.name?.trim() || "Teacher";
+  const sessionEmail = sessionUser?.email?.trim() || "teacher@learnify.edu";
+  const roleLabel = sessionUser?.role
+    ? sessionUser.role.charAt(0) + sessionUser.role.slice(1).toLowerCase()
+    : "Faculty";
+
   const [page, setPage] = useState<Page>("dashboard");
   const [course, setCourse] = useState("BCSIT");
   const [search, setSearch] = useState("");
@@ -308,9 +326,32 @@ export default function TeacherPage() {
   const [annOpen, setAnnOpen] = useState(false);
   const [toast, setToast] = useState("");
 
+  // UI state for the topbar menus, avatar photo, in-place quiz edit & subjects
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [unread, setUnread] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [editingQuizId, setEditingQuizId] = useState<number | null>(null);
+  const [subjects, setSubjects] = useState(SUBJECT_LIST);
+  const [profile, setProfile] = useState({
+    name: "",
+    email: "",
+    phone: "+977 98XXXXXXXX",
+    department: "BCSIT",
+    bio: "Educator passionate about making study materials accessible and learning measurable for every student.",
+  });
+  const photoRef = useRef<HTMLInputElement>(null);
+
   const [materials, setMaterials] = useState<Material[]>(SEED_MATERIALS);
   const [quizzes, setQuizzes] = useState<Quiz[]>(SEED_QUIZZES);
   const [announcements, setAnnouncements] = useState<Announcement[]>(SEED_ANNOUNCEMENTS);
+
+  // Display identity — falls back to the live session, then to a safe default
+  // (the /teacher-preview route renders this with no session).
+  const displayName = profile.name.trim() || sessionName;
+  const displayEmail = profile.email.trim() || sessionEmail;
+  const firstName = displayName.split(" ")[0];
+  const userInitials = initials(displayName);
 
   const [upload, setUpload] = useState({ course: "BCSIT", semester: "Semester 4", subject: "", chapter: "", title: "" });
   const [ann, setAnn] = useState({ course: "BCSIT", title: "", body: "" });
@@ -359,11 +400,28 @@ export default function TeacherPage() {
       return;
     }
     const nid = Math.max(0, ...announcements.map((x) => x.id)) + 1;
-    const item: Announcement = { id: nid, title: ann.title, course: ann.course, body: ann.body, author: "Aadarsh Bist", date: "Just now" };
+    const item: Announcement = { id: nid, title: ann.title, course: ann.course, body: ann.body, author: displayName, date: "Just now" };
     setAnnouncements((a) => [item, ...a]);
     setAnnOpen(false);
     setAnn({ course: "BCSIT", title: "", body: "" });
     showToast("Announcement posted");
+  };
+
+  /* -------- account / topbar actions -------- */
+  const doLogout = () => signOut({ callbackUrl: "/" });
+  const pickPhoto = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) {
+      setAvatarUrl(URL.createObjectURL(f));
+      showToast("Profile photo updated");
+    }
+  };
+  const addSubject = () => {
+    const name = window.prompt("New subject name")?.trim();
+    if (name) {
+      setSubjects((s) => [{ name, chapters: 0, pdfs: 0 }, ...s]);
+      showToast(`Added “${name}”`);
+    }
   };
 
   const addQuestion = () =>
@@ -395,18 +453,39 @@ export default function TeacherPage() {
       return { ...q, questions: arr };
     });
 
+  const resetQuiz = () =>
+    setQuiz({ course: "BCSIT", subject: "", title: "", questions: [{ q: "", opts: ["", "", "", ""], correct: 0 }] });
+  const openCreateQuiz = () => {
+    setEditingQuizId(null);
+    resetQuiz();
+    setQuizOpen(true);
+  };
+  const openEditQuiz = (q: Quiz) => {
+    setEditingQuizId(q.id);
+    setQuiz({ course: q.course, subject: q.subject, title: q.title, questions: [{ q: "", opts: ["", "", "", ""], correct: 0 }] });
+    setQuizOpen(true);
+  };
+
   const submitQuiz = () => {
     if (!quiz.title.trim() || !quiz.subject.trim()) {
       showToast("Add a title and subject first");
       return;
     }
-    const nid = Math.max(0, ...quizzes.map((x) => x.id)) + 1;
-    const item: Quiz = { id: nid, title: quiz.title, course: quiz.course, subject: quiz.subject, questions: quiz.questions.length, attempts: 0, avg: 0, status: "Published" };
-    setQuizzes((q) => [item, ...q]);
+    if (editingQuizId != null) {
+      setQuizzes((qs) =>
+        qs.map((x) => (x.id === editingQuizId ? { ...x, title: quiz.title, course: quiz.course, subject: quiz.subject } : x)),
+      );
+      showToast("Quiz updated");
+    } else {
+      const nid = Math.max(0, ...quizzes.map((x) => x.id)) + 1;
+      const item: Quiz = { id: nid, title: quiz.title, course: quiz.course, subject: quiz.subject, questions: quiz.questions.length, attempts: 0, avg: 0, status: "Published" };
+      setQuizzes((q) => [item, ...q]);
+      showToast("Quiz published");
+    }
     setCourse(quiz.course);
+    setEditingQuizId(null);
     setQuizOpen(false);
-    setQuiz({ course: "BCSIT", subject: "", title: "", questions: [{ q: "", opts: ["", "", "", ""], correct: 0 }] });
-    showToast("Quiz published");
+    resetQuiz();
   };
 
   const deleteMaterial = (id: number) => {
@@ -441,7 +520,11 @@ export default function TeacherPage() {
   if (searchLC) fq = fq.filter((q) => (q.title + q.subject).toLowerCase().includes(searchLC));
 
   const recentMaterials = materials.slice(0, 4);
-  const [pageTitle, pageSub] = PAGE_TITLES[page];
+  const [pageTitle, basePageSub] = PAGE_TITLES[page];
+  const pageSub =
+    page === "dashboard"
+      ? `Welcome back, ${firstName} — here is your teaching overview`
+      : basePageSub;
 
   const coursePills = () => (
     <div style={s("display:flex;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:5px")}>
@@ -520,19 +603,24 @@ export default function TeacherPage() {
           );
         })()}
 
-        <div style={s("margin-top:12px;display:flex;align-items:center;gap:11px;padding:11px;border-radius:13px;background:var(--card);border:1px solid var(--border)")}>
-          <div style={s("width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:700 13px Poppins;color:#fff;flex:none")}>AB</div>
-          <div style={s("min-width:0")}>
-            <div style={s("font:600 13px Manrope;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>Aadarsh Bist</div>
-            <div style={s("font:500 11px Manrope;color:var(--faint)")}>Faculty · BCSIT</div>
+        <button
+          onClick={() => setPage("profile")}
+          style={s("margin-top:12px;display:flex;align-items:center;gap:11px;padding:11px;border-radius:13px;background:var(--card);border:1px solid var(--border);cursor:pointer;text-align:left;width:100%")}
+        >
+          <div style={s("width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:700 13px Poppins;color:#fff;flex:none;overflow:hidden")}>
+            {avatarUrl ? <img src={avatarUrl} alt="" style={s("width:100%;height:100%;object-fit:cover")} /> : userInitials}
           </div>
-        </div>
+          <div style={s("min-width:0")}>
+            <div style={s("font:600 13px Manrope;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{displayName}</div>
+            <div style={s("font:500 11px Manrope;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{roleLabel} · {course}</div>
+          </div>
+        </button>
       </aside>
 
       {/* ================= MAIN ================= */}
       <div style={s("flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg)")}>
         {/* TOPBAR */}
-        <header style={s("flex:none;height:70px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 28px;background:rgba(11,18,32,.7);backdrop-filter:blur(8px)")}>
+        <header style={s("position:relative;z-index:30;flex:none;height:70px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 28px;background:var(--topbar);backdrop-filter:blur(8px)")}>
           <div style={s("min-width:0")}>
             <div style={s("font:700 19px Poppins;letter-spacing:-.3px;line-height:1.1")}>{pageTitle}</div>
             <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:2px")}>{pageSub}</div>
@@ -550,14 +638,104 @@ export default function TeacherPage() {
               style={s("border:none;background:transparent;color:var(--text);font:500 13px Manrope;outline:none;width:100%")}
             />
           </div>
-          <button className="h-bell" style={s("position:relative;width:42px;height:42px;border-radius:11px;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)")}>
-            <I w={19}>
-              <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-            </I>
-            <span style={s("position:absolute;top:9px;right:10px;width:7px;height:7px;border-radius:50%;background:var(--accent);border:2px solid var(--card)")} />
+
+          {/* theme toggle — mirrors the site's light/dark switch */}
+          <button
+            className="h-bell"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label="Toggle theme"
+            style={s("width:42px;height:42px;border-radius:11px;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)")}
+          >
+            {isDark ? (
+              <I w={18} sw={2}>
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+              </I>
+            ) : (
+              <I w={18} sw={2}>
+                <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z" />
+              </I>
+            )}
           </button>
-          <div style={s("width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:700 14px Poppins;color:#fff;cursor:pointer")}>AB</div>
+
+          {/* notifications */}
+          <div style={s("position:relative")}>
+            <button
+              className="h-bell"
+              onClick={() => { setBellOpen((o) => !o); setMenuOpen(false); setUnread(false); }}
+              aria-label="Notifications"
+              style={s("position:relative;width:42px;height:42px;border-radius:11px;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)")}
+            >
+              <I w={19}>
+                <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+              </I>
+              {unread && <span style={s("position:absolute;top:9px;right:10px;width:7px;height:7px;border-radius:50%;background:var(--accent);border:2px solid var(--card)")} />}
+            </button>
+            {bellOpen && (
+              <>
+                <div onClick={() => setBellOpen(false)} style={s("position:fixed;inset:0;z-index:40")} />
+                <div style={s("position:absolute;right:0;top:52px;width:330px;background:var(--card2);border:1px solid var(--border2);border-radius:14px;box-shadow:0 18px 46px rgba(0,0,0,.28);z-index:41;overflow:hidden;animation:popIn .18s ease")}>
+                  <div style={s("padding:14px 16px;border-bottom:1px solid var(--border);font:700 14px Poppins")}>Notifications</div>
+                  <div style={s("max-height:320px;overflow-y:auto")}>
+                    {SEED_ACTIVITY.map((a, i) => {
+                      const mt = meta(a.course);
+                      return (
+                        <div key={i} style={s("display:flex;gap:11px;padding:12px 16px;border-bottom:1px solid var(--border)")}>
+                          <div style={s(`width:32px;height:32px;border-radius:50%;background:${mt.bg};color:${mt.color};display:flex;align-items:center;justify-content:center;font:700 11px Poppins;flex:none`)}>{initials(a.name)}</div>
+                          <div style={s("min-width:0")}>
+                            <div style={s("font:600 13px Manrope")}>{a.name} <span style={s("font-weight:500;color:var(--muted)")}>{a.action}</span></div>
+                            <div style={s("font:500 11px Manrope;color:var(--faint);margin-top:2px")}>{a.time}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* profile avatar + account menu */}
+          <div style={s("position:relative")}>
+            <button
+              onClick={() => { setMenuOpen((o) => !o); setBellOpen(false); }}
+              aria-label="Account menu"
+              style={s("width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:700 14px Poppins;color:#fff;cursor:pointer;border:none;overflow:hidden;padding:0")}
+            >
+              {avatarUrl ? <img src={avatarUrl} alt="" style={s("width:100%;height:100%;object-fit:cover")} /> : userInitials}
+            </button>
+            {menuOpen && (
+              <>
+                <div onClick={() => setMenuOpen(false)} style={s("position:fixed;inset:0;z-index:40")} />
+                <div style={s("position:absolute;right:0;top:52px;width:262px;background:var(--card2);border:1px solid var(--border2);border-radius:14px;box-shadow:0 18px 46px rgba(0,0,0,.28);z-index:41;overflow:hidden;animation:popIn .18s ease")}>
+                  <div style={s("display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border)")}>
+                    <div style={s("width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:700 15px Poppins;color:#fff;flex:none;overflow:hidden")}>
+                      {avatarUrl ? <img src={avatarUrl} alt="" style={s("width:100%;height:100%;object-fit:cover")} /> : userInitials}
+                    </div>
+                    <div style={s("min-width:0")}>
+                      <div style={s("font:700 14px Poppins;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{displayName}</div>
+                      <div style={s("font:500 12px Manrope;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{displayEmail}</div>
+                    </div>
+                  </div>
+                  <div style={s("padding:5px")}>
+                    <div style={s("padding:7px 12px 4px;font:600 11px Manrope;color:var(--faint)")}>Signed in as {roleLabel}</div>
+                    <button className="h-qa" onClick={() => { setPage("profile"); setMenuOpen(false); }} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px;border:none;border-radius:9px;cursor:pointer;font:600 13px Manrope;text-align:left;background:transparent;color:var(--text)")}>
+                      {IcProfile} View profile
+                    </button>
+                    <button className="h-qa" onClick={() => { setPage("progress"); setMenuOpen(false); }} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px;border:none;border-radius:9px;cursor:pointer;font:600 13px Manrope;text-align:left;background:transparent;color:var(--text)")}>
+                      {IcChart} Student analytics
+                    </button>
+                    <button className="h-del" onClick={doLogout} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px;border:1px solid transparent;border-radius:9px;cursor:pointer;font:600 13px Manrope;text-align:left;background:transparent;color:var(--red)")}>
+                      <I w={17} sw={2}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></I>
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </header>
 
         {/* SCROLL CONTENT */}
@@ -634,7 +812,7 @@ export default function TeacherPage() {
                   <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
                     <div style={s("font:700 16px Poppins;margin-bottom:14px")}>Quick actions</div>
                     <div style={s("display:flex;flex-direction:column;gap:9px")}>
-                      <button className="h-qa" onClick={() => setQuizOpen(true)} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:12px 13px;border-radius:11px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer;text-align:left")}>
+                      <button className="h-qa" onClick={openCreateQuiz} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:12px 13px;border-radius:11px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer;text-align:left")}>
                         <span style={s("color:var(--accent)")}><I w={17} sw={2}><path d="M12 5v14M5 12h14" /></I></span> Create a new quiz
                       </button>
                       <button className="h-qa" onClick={() => setAnnOpen(true)} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:12px 13px;border-radius:11px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer;text-align:left")}>
@@ -700,7 +878,7 @@ export default function TeacherPage() {
                     <div style={s("font:600 13px Manrope")}>{m.pages}</div>
                     <div style={s("font:600 13px Manrope")}>{m.downloads}</div>
                     <div style={s("display:flex;gap:6px;justify-content:flex-end")}>
-                      <button className="h-accent" style={s("width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center")}>{IcEye}</button>
+                      <button className="h-accent" onClick={() => showToast(`Opening “${m.title}”`)} style={s("width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center")}>{IcEye}</button>
                       <button className="h-del" onClick={() => deleteMaterial(m.id)} style={s("width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center")}>{IcTrash}</button>
                     </div>
                   </div>
@@ -721,7 +899,7 @@ export default function TeacherPage() {
               <div style={s("display:flex;align-items:center;gap:12px;margin-bottom:20px")}>
                 {coursePills()}
                 <div style={s("flex:1")} />
-                <button className="h-primary" onClick={() => setQuizOpen(true)} style={s("display:flex;align-items:center;gap:7px;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:11px 16px;font:600 13px Manrope;cursor:pointer")}>
+                <button className="h-primary" onClick={openCreateQuiz} style={s("display:flex;align-items:center;gap:7px;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:11px 16px;font:600 13px Manrope;cursor:pointer")}>
                   {IcPlus()} Create quiz
                 </button>
               </div>
@@ -747,7 +925,7 @@ export default function TeacherPage() {
                       <div style={s("height:7px;border-radius:4px;background:var(--bg2);overflow:hidden;margin-bottom:16px")}><div style={s(`height:100%;width:${q.avg || 0}%;background:${sc};border-radius:4px`)} /></div>
                       <div style={s("display:flex;gap:8px")}>
                         <button className="h-accent" onClick={() => toggleQuiz(q.id)} style={s("flex:1;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 12.5px Manrope;cursor:pointer")}>{pub ? "Unpublish" : "Publish"}</button>
-                        <button className="h-accent" style={s("padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);font:600 12.5px Manrope;cursor:pointer")}>Edit</button>
+                        <button className="h-accent" onClick={() => openEditQuiz(q)} style={s("padding:9px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);font:600 12.5px Manrope;cursor:pointer")}>Edit</button>
                         <button className="h-del" onClick={() => deleteQuiz(q.id)} style={s("width:36px;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center")}>{IcTrash}</button>
                       </div>
                     </div>
@@ -839,18 +1017,18 @@ export default function TeacherPage() {
                         <div style={s("text-align:center")}><div style={s("font:800 18px Poppins")}>{c.subjects}</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Subjects</div></div>
                         <div style={s("text-align:center")}><div style={s("font:800 18px Poppins")}>{c.students}</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Students</div></div>
                       </div>
-                      <button className="h-accent" style={s("width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer")}>Manage subjects</button>
+                      <button className="h-accent" onClick={() => { setCourse(c.code); showToast(`Managing ${c.code} subjects`); }} style={s("width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer")}>Manage subjects</button>
                     </div>
                   </div>
                 ))}
               </div>
               <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
                 <div style={s("display:flex;align-items:center;justify-content:space-between;margin-bottom:16px")}>
-                  <div style={s("font:700 16px Poppins")}>BCSIT · Semester 4 subjects</div>
-                  <button style={s("display:flex;align-items:center;gap:7px;background:var(--accent-soft);color:var(--accent);border:none;border-radius:9px;padding:8px 13px;font:600 12.5px Manrope;cursor:pointer")}>{IcPlus(14)} Add subject</button>
+                  <div style={s("font:700 16px Poppins")}>{course} · Semester 4 subjects</div>
+                  <button onClick={addSubject} style={s("display:flex;align-items:center;gap:7px;background:var(--accent-soft);color:var(--accent);border:none;border-radius:9px;padding:8px 13px;font:600 12.5px Manrope;cursor:pointer")}>{IcPlus(14)} Add subject</button>
                 </div>
                 <div style={s("display:grid;grid-template-columns:repeat(2,1fr);gap:10px")}>
-                  {SUBJECT_LIST.map((sub) => (
+                  {subjects.map((sub) => (
                     <div key={sub.name} style={s("display:flex;align-items:center;gap:13px;padding:13px 15px;border-radius:11px;background:var(--bg2);border:1px solid var(--border)")}>
                       <div style={s("width:36px;height:36px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center")}>{IcBook}</div>
                       <div style={s("flex:1;min-width:0")}><div style={s("font:600 14px Manrope")}>{sub.name}</div><div style={s("font:500 11.5px Manrope;color:var(--faint)")}>{sub.chapters} chapters · {sub.pdfs} PDFs</div></div>
@@ -879,7 +1057,7 @@ export default function TeacherPage() {
                         <div style={s("flex:1;min-width:0")}>
                           <div style={s("display:flex;align-items:center;gap:10px;flex-wrap:wrap")}><span style={s("font:700 16px Poppins")}>{a.title}</span><span style={s(`font:700 10.5px Manrope;color:${mt.color};background:${mt.bg};padding:4px 9px;border-radius:20px`)}>{a.course}</span></div>
                           <div style={s("font:500 13.5px/1.6 Manrope;color:var(--muted);margin-top:8px")}>{a.body}</div>
-                          <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:12px")}>Posted by {a.author} · {a.date}</div>
+                          <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:12px")}>Posted by {a.author || displayName} · {a.date}</div>
                         </div>
                       </div>
                     </div>
@@ -892,25 +1070,28 @@ export default function TeacherPage() {
           {/* ============ PROFILE ============ */}
           {page === "profile" && (
             <div style={s("animation:fadeIn .25s ease;max-width:760px")}>
+              <input ref={photoRef} type="file" accept="image/*" onChange={pickPhoto} style={s("display:none")} />
               <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px;margin-bottom:18px;display:flex;align-items:center;gap:20px")}>
-                <div style={s("width:78px;height:78px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:800 26px Poppins;color:#fff;flex:none")}>AB</div>
-                <div style={s("flex:1")}>
-                  <div style={s("font:700 21px Poppins")}>Aadarsh Bist</div>
-                  <div style={s("font:500 13px Manrope;color:var(--muted);margin-top:2px")}>Founder &amp; Lead Educator · Shubhashree College of Management</div>
+                <div style={s("width:78px;height:78px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:800 26px Poppins;color:#fff;flex:none;overflow:hidden")}>
+                  {avatarUrl ? <img src={avatarUrl} alt="" style={s("width:100%;height:100%;object-fit:cover")} /> : userInitials}
                 </div>
-                <button className="h-accent" style={s("padding:9px 15px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer")}>Change photo</button>
+                <div style={s("flex:1;min-width:0")}>
+                  <div style={s("font:700 21px Poppins;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{displayName}</div>
+                  <div style={s("font:500 13px Manrope;color:var(--muted);margin-top:2px")}>{roleLabel} · Learnify</div>
+                </div>
+                <button className="h-accent" onClick={() => photoRef.current?.click()} style={s("padding:9px 15px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font:600 13px Manrope;cursor:pointer")}>Change photo</button>
               </div>
               <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px")}>
                 <div style={s("font:700 16px Poppins;margin-bottom:20px")}>Account details</div>
                 <div style={s("display:grid;grid-template-columns:1fr 1fr;gap:16px")}>
-                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Full name</label><input className="h-input" defaultValue="Aadarsh Bist" style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
-                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Email</label><input className="h-input" defaultValue="aadarsh@shubhashree.com" style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
-                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Phone</label><input className="h-input" defaultValue="+977 9800000000" style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
-                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Department</label><input className="h-input" defaultValue="BCSIT" style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
-                  <div style={s("grid-column:1/3")}><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Bio</label><textarea className="h-input" rows={3} defaultValue="Educator passionate about making study materials accessible and learning measurable for every student." style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;resize:vertical")} /></div>
+                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Full name</label><input className="h-input" value={profile.name || sessionName} onChange={(e) => setProfile({ ...profile, name: e.target.value })} style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Email</label><input className="h-input" value={profile.email || sessionEmail} onChange={(e) => setProfile({ ...profile, email: e.target.value })} style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Phone</label><input className="h-input" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+                  <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Department</label><input className="h-input" value={profile.department} onChange={(e) => setProfile({ ...profile, department: e.target.value })} style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+                  <div style={s("grid-column:1/3")}><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Bio</label><textarea className="h-input" rows={3} value={profile.bio} onChange={(e) => setProfile({ ...profile, bio: e.target.value })} style={s("width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;resize:vertical")} /></div>
                 </div>
                 <div style={s("display:flex;gap:10px;justify-content:flex-end;margin-top:22px")}>
-                  <button style={s("padding:11px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font:600 13px Manrope;cursor:pointer")}>Cancel</button>
+                  <button onClick={() => setProfile({ name: "", email: "", phone: "+977 98XXXXXXXX", department: "BCSIT", bio: "Educator passionate about making study materials accessible and learning measurable for every student." })} style={s("padding:11px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font:600 13px Manrope;cursor:pointer")}>Cancel</button>
                   <button className="h-primary" onClick={() => showToast("Profile saved")} style={s("padding:11px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;font:600 13px Manrope;cursor:pointer")}>Save changes</button>
                 </div>
               </div>
@@ -952,14 +1133,21 @@ export default function TeacherPage() {
         <div onClick={() => setQuizOpen(false)} style={s("position:fixed;inset:0;background:rgba(6,10,20,.66);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;animation:fadeIn .15s ease")}>
           <div onClick={(e) => e.stopPropagation()} style={s("width:600px;max-width:94vw;max-height:88vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:26px;animation:popIn .22s cubic-bezier(.2,.8,.3,1)")}>
             <div style={s("display:flex;align-items:center;justify-content:space-between;margin-bottom:20px")}>
-              <div><div style={s("font:700 18px Poppins")}>Create a quiz</div><div style={s("font:500 12.5px Manrope;color:var(--faint);margin-top:2px")}>Build an MCQ quiz for a chapter</div></div>
-              <button onClick={() => setQuizOpen(false)} style={s("width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:18px")}>✕</button>
+              <div><div style={s("font:700 18px Poppins")}>{editingQuizId != null ? "Edit quiz" : "Create a quiz"}</div><div style={s("font:500 12.5px Manrope;color:var(--faint);margin-top:2px")}>{editingQuizId != null ? "Update this quiz's details" : "Build an MCQ quiz for a chapter"}</div></div>
+              <button onClick={() => { setEditingQuizId(null); setQuizOpen(false); }} style={s("width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:18px")}>✕</button>
             </div>
             <div style={s("display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px")}>
               <div style={s("grid-column:1/3")}><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Quiz title</label><input className="h-input" value={quiz.title} onChange={(e) => setQuiz({ ...quiz, title: e.target.value })} placeholder="e.g. Chapter 3 · Normalization" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
               <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Course</label><select value={quiz.course} onChange={(e) => setQuiz({ ...quiz, course: e.target.value })} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option>BCSIT</option><option>BBA</option><option>BHM</option></select></div>
               <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Subject</label><input className="h-input" value={quiz.subject} onChange={(e) => setQuiz({ ...quiz, subject: e.target.value })} placeholder="e.g. Database Management" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
             </div>
+            {editingQuizId != null && (
+              <div style={s("display:flex;gap:10px;background:var(--accent-soft);border:1px solid var(--border2);border-radius:11px;padding:12px 14px;margin:6px 0 4px;font:500 12.5px Manrope;color:var(--muted)")}>
+                Editing quiz details — questions & attempts are kept as they are.
+              </div>
+            )}
+            {editingQuizId == null && (
+            <>
             <div style={s("display:flex;align-items:center;justify-content:space-between;margin:18px 0 12px")}><div style={s("font:700 13px Poppins")}>Questions</div><div style={s("font:600 12px Manrope;color:var(--faint)")}>{quiz.questions.length} added</div></div>
             <div style={s("display:flex;flex-direction:column;gap:12px;margin-bottom:14px")}>
               {quiz.questions.map((qq, i) => (
@@ -982,9 +1170,11 @@ export default function TeacherPage() {
               ))}
             </div>
             <button className="h-qa" onClick={addQuestion} style={s("width:100%;padding:11px;border-radius:10px;border:1.5px dashed var(--border2);background:transparent;color:var(--accent);font:600 13px Manrope;cursor:pointer;margin-bottom:20px")}>+ Add question</button>
+            </>
+            )}
             <div style={s("display:flex;gap:10px;justify-content:flex-end")}>
-              <button onClick={() => setQuizOpen(false)} style={s("padding:11px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font:600 13px Manrope;cursor:pointer")}>Cancel</button>
-              <button className="h-primary" onClick={submitQuiz} style={s("padding:11px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;font:600 13px Manrope;cursor:pointer")}>Publish quiz</button>
+              <button onClick={() => { setEditingQuizId(null); setQuizOpen(false); }} style={s("padding:11px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font:600 13px Manrope;cursor:pointer")}>Cancel</button>
+              <button className="h-primary" onClick={submitQuiz} style={s("padding:11px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;font:600 13px Manrope;cursor:pointer")}>{editingQuizId != null ? "Save changes" : "Publish quiz"}</button>
             </div>
           </div>
         </div>
@@ -1025,7 +1215,21 @@ export default function TeacherPage() {
 /* --------------------------- scoped styles --------------------------- */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap');
+/* Light palette (default) — matches the site's light theme. */
 .tdscope{
+  --bg:#f6f7fb; --bg2:#eef1f7; --sidebar:#ffffff; --card:#ffffff; --card2:#ffffff;
+  --border:rgba(15,23,42,.09); --border2:rgba(15,23,42,.16);
+  --text:#1e293b; --muted:#5a6b82; --faint:#8695a9;
+  --accent:#4f86c6; --accent-h:#3f6fac; --accent-soft:rgba(79,134,198,.12);
+  --green:#3f9a76; --green-soft:rgba(63,154,118,.13);
+  --amber:#b7902f; --amber-soft:rgba(183,144,47,.14);
+  --red:#c9534d; --red-soft:rgba(201,83,77,.12);
+  --topbar:rgba(255,255,255,.72);
+  color:var(--text);-webkit-font-smoothing:antialiased;
+  transition:background-color .3s ease,color .3s ease;
+}
+/* Dark palette — applied when the site is in dark mode (.dark on <html>). */
+.dark .tdscope{
   --bg:#0b1220; --bg2:#0f1a2e; --sidebar:#0c1628; --card:#15213b; --card2:#1a2744;
   --border:rgba(148,163,184,.12); --border2:rgba(148,163,184,.20);
   --text:#eef2f8; --muted:#95a3ba; --faint:#647388;
@@ -1033,7 +1237,7 @@ const CSS = `
   --green:#54a888; --green-soft:rgba(84,168,136,.14);
   --amber:#c9a24e; --amber-soft:rgba(201,162,78,.14);
   --red:#c9645e; --red-soft:rgba(201,100,94,.14);
-  color:var(--text);-webkit-font-smoothing:antialiased;
+  --topbar:rgba(11,18,32,.7);
 }
 .tdscope *{box-sizing:border-box}
 .tdscope a{color:var(--accent);text-decoration:none}
