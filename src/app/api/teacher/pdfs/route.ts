@@ -16,7 +16,15 @@ export async function GET() {
     include: {
       chapter: {
         include: {
-          subject: true,
+          // Include the full chain so the dashboard can show/filter by
+          // subject, semester and course without extra requests.
+          subject: {
+            include: {
+              semester: {
+                include: { course: true },
+              },
+            },
+          },
         },
       },
     },

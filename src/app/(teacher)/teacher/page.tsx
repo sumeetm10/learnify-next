@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
-import type { CSSProperties, ReactNode, ChangeEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { CSSProperties, ReactNode, ChangeEvent, DragEvent } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 
@@ -153,17 +153,52 @@ const IcBook = (
 
 /* ------------------------------- data types ------------------------------ */
 interface Material {
-  id: number;
+  id: string;
   title: string;
   course: string;
   semester: string;
   subject: string;
   chapter: string;
-  pages: number;
-  size: string;
-  downloads: number;
   date: string;
+  filePath?: string; // present for real (DB) uploads — used by the view button
+  pages?: number; // demo-only fields (not tracked in the DB)
+  size?: string;
+  downloads?: number;
 }
+
+/* --- shapes returned by the live API (subset of what we use) --- */
+interface LiveCourse {
+  id: string;
+  name: string;
+  slug: string;
+  semesters: { id: number; name: string }[];
+}
+interface LiveSubject {
+  id: string;
+  title: string;
+  semesterId: number;
+  chapters: { id: string; title: string }[];
+}
+interface LivePdf {
+  id: string;
+  title: string;
+  filePath: string;
+  createdAt: string;
+  chapter: {
+    title: string;
+    subject: { title: string; semester: { name: string; course: { name: string } } };
+  };
+}
+const mapPdf = (p: LivePdf): Material => ({
+  id: p.id,
+  title: p.title,
+  course: p.chapter.subject.semester.course.name,
+  semester: p.chapter.subject.semester.name,
+  subject: p.chapter.subject.title,
+  chapter: p.chapter.title,
+  filePath: p.filePath,
+  date: new Date(p.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+});
 interface Quiz {
   id: number;
   title: string;
@@ -212,14 +247,14 @@ type Page =
 
 /* ------------------------------- seed data ------------------------------ */
 const SEED_MATERIALS: Material[] = [
-  { id: 1, title: "Normalization & Keys", course: "BCSIT", semester: "Semester 4", subject: "Database Management", chapter: "3", pages: 24, size: "2.1 MB", downloads: 186, date: "Jul 8" },
-  { id: 2, title: "TCP/IP Model Explained", course: "BCSIT", semester: "Semester 4", subject: "Computer Networks", chapter: "2", pages: 31, size: "3.4 MB", downloads: 142, date: "Jul 6" },
-  { id: 3, title: "React Fundamentals", course: "BCSIT", semester: "Semester 5", subject: "Web Technology", chapter: "1", pages: 42, size: "4.8 MB", downloads: 209, date: "Jul 5" },
-  { id: 4, title: "Sorting Algorithms", course: "BCSIT", semester: "Semester 3", subject: "Data Structures", chapter: "5", pages: 28, size: "2.7 MB", downloads: 174, date: "Jul 3" },
-  { id: 5, title: "Principles of Marketing", course: "BBA", semester: "Semester 2", subject: "Marketing", chapter: "1", pages: 36, size: "3.0 MB", downloads: 98, date: "Jul 2" },
-  { id: 6, title: "Financial Statements", course: "BBA", semester: "Semester 3", subject: "Accounting", chapter: "4", pages: 40, size: "3.9 MB", downloads: 121, date: "Jul 1" },
-  { id: 7, title: "Food & Beverage Service", course: "BHM", semester: "Semester 2", subject: "F&B Operations", chapter: "2", pages: 22, size: "1.9 MB", downloads: 67, date: "Jun 29" },
-  { id: 8, title: "ER Diagrams", course: "BCSIT", semester: "Semester 4", subject: "Database Management", chapter: "2", pages: 19, size: "1.6 MB", downloads: 158, date: "Jun 27" },
+  { id: "1", title: "Normalization & Keys", course: "BCSIT", semester: "Semester 4", subject: "Database Management", chapter: "3", pages: 24, size: "2.1 MB", downloads: 186, date: "Jul 8" },
+  { id: "2", title: "TCP/IP Model Explained", course: "BCSIT", semester: "Semester 4", subject: "Computer Networks", chapter: "2", pages: 31, size: "3.4 MB", downloads: 142, date: "Jul 6" },
+  { id: "3", title: "React Fundamentals", course: "BCSIT", semester: "Semester 5", subject: "Web Technology", chapter: "1", pages: 42, size: "4.8 MB", downloads: 209, date: "Jul 5" },
+  { id: "4", title: "Sorting Algorithms", course: "BCSIT", semester: "Semester 3", subject: "Data Structures", chapter: "5", pages: 28, size: "2.7 MB", downloads: 174, date: "Jul 3" },
+  { id: "5", title: "Principles of Marketing", course: "BBA", semester: "Semester 2", subject: "Marketing", chapter: "1", pages: 36, size: "3.0 MB", downloads: 98, date: "Jul 2" },
+  { id: "6", title: "Financial Statements", course: "BBA", semester: "Semester 3", subject: "Accounting", chapter: "4", pages: 40, size: "3.9 MB", downloads: 121, date: "Jul 1" },
+  { id: "7", title: "Food & Beverage Service", course: "BHM", semester: "Semester 2", subject: "F&B Operations", chapter: "2", pages: 22, size: "1.9 MB", downloads: 67, date: "Jun 29" },
+  { id: "8", title: "ER Diagrams", course: "BCSIT", semester: "Semester 4", subject: "Database Management", chapter: "2", pages: 19, size: "1.6 MB", downloads: 158, date: "Jun 27" },
 ];
 
 const SEED_QUIZZES: Quiz[] = [
@@ -346,6 +381,30 @@ export default function TeacherPage() {
   const [quizzes, setQuizzes] = useState<Quiz[]>(SEED_QUIZZES);
   const [announcements, setAnnouncements] = useState<Announcement[]>(SEED_ANNOUNCEMENTS);
 
+  /* -------- live data (real DB) -------- */
+  const [liveCourses, setLiveCourses] = useState<LiveCourse[]>([]);
+  const [liveSubjects, setLiveSubjects] = useState<LiveSubject[]>([]);
+  const [liveMode, setLiveMode] = useState(false); // true once real uploads load
+
+  const loadMaterials = async () => {
+    try {
+      const res = await fetch("/api/teacher/pdfs");
+      if (!res.ok) return; // not signed in (e.g. /teacher-preview) → keep seed demo
+      const data = await res.json();
+      setMaterials(((data.pdfs ?? []) as LivePdf[]).map(mapPdf));
+      setLiveMode(true);
+    } catch {
+      /* offline / no API → keep the seed demo */
+    }
+  };
+
+  useEffect(() => {
+    // Public endpoints — power the upload picker and the courses page.
+    fetch("/api/courses").then((r) => (r.ok ? r.json() : null)).then((d) => d?.courses && setLiveCourses(d.courses)).catch(() => {});
+    fetch("/api/subjects").then((r) => (r.ok ? r.json() : null)).then((d) => d?.subjects && setLiveSubjects(d.subjects)).catch(() => {});
+    loadMaterials();
+  }, []);
+
   // Display identity — falls back to the live session, then to a safe default
   // (the /teacher-preview route renders this with no session).
   const displayName = profile.name.trim() || sessionName;
@@ -353,7 +412,11 @@ export default function TeacherPage() {
   const firstName = displayName.split(" ")[0];
   const userInitials = initials(displayName);
 
-  const [upload, setUpload] = useState({ course: "BCSIT", semester: "Semester 4", subject: "", chapter: "", title: "" });
+  const [upload, setUpload] = useState({ courseId: "", semesterId: "", subjectId: "", chapterId: "", title: "" });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [ann, setAnn] = useState({ course: "BCSIT", title: "", body: "" });
   const [quiz, setQuiz] = useState<{ course: string; subject: string; title: string; questions: DraftQ[] }>({
     course: "BCSIT",
@@ -369,29 +432,59 @@ export default function TeacherPage() {
     toastTimer.current = window.setTimeout(() => setToast(""), 2600);
   };
 
-  const submitUpload = () => {
-    if (!upload.title.trim() || !upload.subject.trim()) {
-      showToast("Add a title and subject first");
+  const resetUpload = () => {
+    setUpload({ courseId: "", semesterId: "", subjectId: "", chapterId: "", title: "" });
+    setUploadFile(null);
+    setDragOver(false);
+  };
+  // Accept a chosen/dropped file: PDFs only; pre-fill the title from the name.
+  const chooseFile = (f: File | null | undefined) => {
+    if (!f) return;
+    if (f.type !== "application/pdf") {
+      showToast("Only PDF files are allowed");
       return;
     }
-    const nid = Math.max(0, ...materials.map((m) => m.id)) + 1;
-    const item: Material = {
-      id: nid,
-      title: upload.title,
-      course: upload.course,
-      semester: upload.semester,
-      subject: upload.subject,
-      chapter: upload.chapter || "1",
-      pages: Math.floor(15 + Math.random() * 30),
-      size: (1 + Math.random() * 3).toFixed(1) + " MB",
-      downloads: 0,
-      date: "Just now",
-    };
-    setMaterials((m) => [item, ...m]);
-    setCourse(upload.course);
-    setUploadOpen(false);
-    setUpload({ course: "BCSIT", semester: "Semester 4", subject: "", chapter: "", title: "" });
-    showToast("Material uploaded successfully");
+    setUploadFile(f);
+    setUpload((u) => (u.title.trim() ? u : { ...u, title: f.name.replace(/\.pdf$/i, "") }));
+  };
+  const onDropFile = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    chooseFile(e.dataTransfer.files?.[0]);
+  };
+
+  const submitUpload = async () => {
+    if (!uploadFile) {
+      showToast("Choose a PDF file first");
+      return;
+    }
+    if (!upload.title.trim()) {
+      showToast("Add a title first");
+      return;
+    }
+    if (!upload.chapterId) {
+      showToast("Select course, semester, subject & chapter");
+      return;
+    }
+    setUploadBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", uploadFile);
+      fd.append("title", upload.title.trim());
+      fd.append("chapterId", upload.chapterId);
+      const res = await fetch("/api/teacher/upload", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      await loadMaterials();
+      setUploadOpen(false);
+      resetUpload();
+      setPage("materials");
+      showToast("Material uploaded successfully");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadBusy(false);
+    }
   };
 
   const submitAnn = () => {
@@ -417,6 +510,11 @@ export default function TeacherPage() {
     }
   };
   const addSubject = () => {
+    // Subjects/chapters come from the DB and are created in the Admin panel.
+    if (liveCourses.length) {
+      showToast("Subjects are managed from the Admin panel");
+      return;
+    }
     const name = window.prompt("New subject name")?.trim();
     if (name) {
       setSubjects((s) => [{ name, chapters: 0, pdfs: 0 }, ...s]);
@@ -488,9 +586,21 @@ export default function TeacherPage() {
     resetQuiz();
   };
 
-  const deleteMaterial = (id: number) => {
-    setMaterials((m) => m.filter((x) => x.id !== id));
-    showToast("Material deleted");
+  const deleteMaterial = async (id: string) => {
+    const prev = materials;
+    setMaterials((m) => m.filter((x) => x.id !== id)); // optimistic
+    if (!liveMode) {
+      showToast("Material deleted");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/teacher/pdfs?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      showToast("Material deleted");
+    } catch {
+      setMaterials(prev); // roll back on failure
+      showToast("Could not delete material");
+    }
   };
   const deleteQuiz = (id: number) => {
     setQuizzes((q) => q.filter((x) => x.id !== id));
@@ -525,6 +635,46 @@ export default function TeacherPage() {
     page === "dashboard"
       ? `Welcome back, ${firstName} — here is your teaching overview`
       : basePageSub;
+
+  // Semester filter options for the Materials page (from the loaded data).
+  const semOptions = Array.from(
+    new Set(materials.filter((m) => m.course === course).map((m) => m.semester)),
+  );
+
+  // Upload picker — cascading options from live data.
+  const upCourse = liveCourses.find((c) => c.id === upload.courseId);
+  const upSemesters = upCourse?.semesters ?? [];
+  const upSubjects = liveSubjects.filter((sub) => String(sub.semesterId) === upload.semesterId);
+  const upSubject = upSubjects.find((sub) => sub.id === upload.subjectId);
+  const upChapters = upSubject?.chapters ?? [];
+
+  // Courses page — live courses/subjects, falling back to the demo cards.
+  const displayCourses = liveCourses.length
+    ? liveCourses.map((c) => {
+        const m = meta(c.name);
+        const semIds = new Set(c.semesters.map((sm) => sm.id));
+        return {
+          code: c.name,
+          name: c.slug.toUpperCase(),
+          color: m.color,
+          tagBg: m.bg,
+          semesters: c.semesters.length,
+          subjects: liveSubjects.filter((sub) => semIds.has(sub.semesterId)).length,
+          students: "—" as string | number,
+        };
+      })
+    : COURSE_CARDS.map((c) => ({ ...c, semesters: 8, students: c.students as string | number }));
+  const selectedCourseObj = liveCourses.find((c) => c.name === course);
+  const selectedCourseSemIds = new Set(selectedCourseObj?.semesters.map((sm) => sm.id));
+  const displaySubjects = liveCourses.length
+    ? liveSubjects
+        .filter((sub) => selectedCourseSemIds.has(sub.semesterId))
+        .map((sub) => ({
+          name: sub.title,
+          chapters: sub.chapters.length,
+          pdfs: materials.filter((m) => m.subject === sub.title).length,
+        }))
+    : subjects;
 
   const coursePills = () => (
     <div style={s("display:flex;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:5px")}>
@@ -746,11 +896,11 @@ export default function TeacherPage() {
               <div style={s("display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:22px")}>
                 {[
                   { icon: (<I w={20}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.9" /><path d="M16 3.1a4 4 0 0 1 0 7.8" /></I>), iconBg: "var(--accent-soft)", iconCol: "var(--accent)", tag: "+12", value: "342", label: "Enrolled students" },
-                  { icon: IcFile(20), iconBg: "var(--green-soft)", iconCol: "var(--green)", tag: "+5", value: "128", label: "PDFs uploaded" },
+                  { icon: IcFile(20), iconBg: "var(--green-soft)", iconCol: "var(--green)", tag: "+5", value: liveMode ? String(materials.length) : "128", label: "PDFs uploaded" },
                   { icon: (<I w={20}><path d="M9 11l3 3 8-8" /><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></I>), iconBg: "var(--amber-soft)", iconCol: "var(--amber)", tag: "+3", value: "46", label: "Active quizzes" },
                   { icon: (<I w={20}><path d="M3 3v18h18" /><path d="M7 14l4-4 3 3 5-6" /></I>), iconBg: "var(--accent-soft)", iconCol: "var(--accent)", tag: "+2.4%", value: "78%", label: "Avg quiz score" },
                 ].map((st, i) => (
-                  <div key={i} style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px")}>
+                  <div key={i} className="h-stat" style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px")}>
                     <div style={s("display:flex;justify-content:space-between;align-items:flex-start")}>
                       <div style={s(`width:40px;height:40px;border-radius:11px;background:${st.iconBg};display:flex;align-items:center;justify-content:center;color:${st.iconCol}`)}>{st.icon}</div>
                       <span style={s("font:700 11px Manrope;color:var(--green);background:var(--green-soft);padding:4px 8px;border-radius:20px")}>{st.tag}</span>
@@ -778,7 +928,7 @@ export default function TeacherPage() {
                           <div style={s("width:38px;height:38px;border-radius:10px;background:var(--red-soft);display:flex;align-items:center;justify-content:center;color:var(--red);flex:none")}>{IcFile(18)}</div>
                           <div style={s("min-width:0;flex:1")}>
                             <div style={s("font:600 14px Manrope;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{m.title}</div>
-                            <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:2px")}>{m.subject} · {m.pages} pages · {m.size}</div>
+                            <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:2px")}>{m.subject}{m.chapter ? ` · ${m.chapter}` : ""}{m.pages ? ` · ${m.pages} pages` : ""}{m.size ? ` · ${m.size}` : ""}</div>
                           </div>
                           <span style={s(`font:700 11px Manrope;color:${mt.color};background:${mt.bg};padding:4px 10px;border-radius:20px;flex:none`)}>{m.course}</span>
                           <span style={s("font:500 12px Manrope;color:var(--faint);width:78px;text-align:right;flex:none")}>{m.date}</span>
@@ -854,8 +1004,7 @@ export default function TeacherPage() {
                 {coursePills()}
                 <select value={matFilterSem} onChange={(e) => setMatFilterSem(e.target.value)} style={s("background:var(--card);border:1px solid var(--border);border-radius:11px;padding:10px 13px;color:var(--text);font:600 13px Manrope;cursor:pointer;outline:none")}>
                   <option>All semesters</option>
-                  <option>Semester 1</option><option>Semester 2</option><option>Semester 3</option><option>Semester 4</option>
-                  <option>Semester 5</option><option>Semester 6</option><option>Semester 7</option><option>Semester 8</option>
+                  {semOptions.map((sm) => (<option key={sm}>{sm}</option>))}
                 </select>
                 <div style={s("flex:1")} />
                 <button className="h-primary" onClick={() => setUploadOpen(true)} style={s("display:flex;align-items:center;gap:7px;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:11px 16px;font:600 13px Manrope;cursor:pointer")}>
@@ -871,14 +1020,14 @@ export default function TeacherPage() {
                   <div key={m.id} className="h-row" style={s("display:grid;grid-template-columns:2.4fr 1.2fr .9fr .7fr .7fr 90px;gap:14px;padding:15px 22px;border-bottom:1px solid var(--border);align-items:center")}>
                     <div style={s("display:flex;align-items:center;gap:12px;min-width:0")}>
                       <div style={s("width:36px;height:36px;border-radius:9px;background:var(--red-soft);display:flex;align-items:center;justify-content:center;color:var(--red);flex:none")}>{IcFile(17)}</div>
-                      <div style={s("min-width:0")}><div style={s("font:600 14px Manrope;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{m.title}</div><div style={s("font:500 11.5px Manrope;color:var(--faint)")}>Chapter {m.chapter} · {m.size}</div></div>
+                      <div style={s("min-width:0")}><div style={s("font:600 14px Manrope;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{m.title}</div><div style={s("font:500 11.5px Manrope;color:var(--faint)")}>{m.size ? `Chapter ${m.chapter} · ${m.size}` : m.chapter}</div></div>
                     </div>
                     <div style={s("font:500 13px Manrope;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{m.subject}</div>
                     <div style={s("font:500 13px Manrope;color:var(--muted)")}>{m.semester.replace("Semester", "Sem")}</div>
-                    <div style={s("font:600 13px Manrope")}>{m.pages}</div>
-                    <div style={s("font:600 13px Manrope")}>{m.downloads}</div>
+                    <div style={s("font:600 13px Manrope")}>{m.pages ?? "—"}</div>
+                    <div style={s("font:600 13px Manrope")}>{m.downloads ?? "—"}</div>
                     <div style={s("display:flex;gap:6px;justify-content:flex-end")}>
-                      <button className="h-accent" onClick={() => showToast(`Opening “${m.title}”`)} style={s("width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center")}>{IcEye}</button>
+                      <button className="h-accent" onClick={() => (m.filePath ? window.open(m.filePath, "_blank", "noopener") : showToast(`Opening “${m.title}”`))} style={s("width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center")}>{IcEye}</button>
                       <button className="h-del" onClick={() => deleteMaterial(m.id)} style={s("width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center")}>{IcTrash}</button>
                     </div>
                   </div>
@@ -1004,7 +1153,7 @@ export default function TeacherPage() {
           {page === "courses" && (
             <div style={s("animation:fadeIn .25s ease;max-width:1200px")}>
               <div style={s("display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:22px")}>
-                {COURSE_CARDS.map((c) => (
+                {displayCourses.map((c) => (
                   <div key={c.code} className="h-card" style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden")}>
                     <div style={s(`height:6px;background:${c.color}`)} />
                     <div style={s("padding:22px")}>
@@ -1013,7 +1162,7 @@ export default function TeacherPage() {
                         <div><div style={s("font:700 16px Poppins")}>{c.code}</div><div style={s("font:500 12px Manrope;color:var(--faint)")}>{c.name}</div></div>
                       </div>
                       <div style={s("display:flex;justify-content:space-between;padding:14px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:16px")}>
-                        <div style={s("text-align:center")}><div style={s("font:800 18px Poppins")}>8</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Semesters</div></div>
+                        <div style={s("text-align:center")}><div style={s("font:800 18px Poppins")}>{c.semesters}</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Semesters</div></div>
                         <div style={s("text-align:center")}><div style={s("font:800 18px Poppins")}>{c.subjects}</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Subjects</div></div>
                         <div style={s("text-align:center")}><div style={s("font:800 18px Poppins")}>{c.students}</div><div style={s("font:500 11px Manrope;color:var(--faint)")}>Students</div></div>
                       </div>
@@ -1024,16 +1173,19 @@ export default function TeacherPage() {
               </div>
               <div style={s("background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px")}>
                 <div style={s("display:flex;align-items:center;justify-content:space-between;margin-bottom:16px")}>
-                  <div style={s("font:700 16px Poppins")}>{course} · Semester 4 subjects</div>
+                  <div style={s("font:700 16px Poppins")}>{course} · Subjects</div>
                   <button onClick={addSubject} style={s("display:flex;align-items:center;gap:7px;background:var(--accent-soft);color:var(--accent);border:none;border-radius:9px;padding:8px 13px;font:600 12.5px Manrope;cursor:pointer")}>{IcPlus(14)} Add subject</button>
                 </div>
                 <div style={s("display:grid;grid-template-columns:repeat(2,1fr);gap:10px")}>
-                  {subjects.map((sub) => (
+                  {displaySubjects.map((sub) => (
                     <div key={sub.name} style={s("display:flex;align-items:center;gap:13px;padding:13px 15px;border-radius:11px;background:var(--bg2);border:1px solid var(--border)")}>
                       <div style={s("width:36px;height:36px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center")}>{IcBook}</div>
                       <div style={s("flex:1;min-width:0")}><div style={s("font:600 14px Manrope")}>{sub.name}</div><div style={s("font:500 11.5px Manrope;color:var(--faint)")}>{sub.chapters} chapters · {sub.pdfs} PDFs</div></div>
                     </div>
                   ))}
+                  {displaySubjects.length === 0 && (
+                    <div style={s("grid-column:1/3;padding:30px 20px;text-align:center;font:500 13px Manrope;color:var(--faint)")}>No subjects for {course} yet.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1108,21 +1260,39 @@ export default function TeacherPage() {
               <div><div style={s("font:700 18px Poppins")}>Upload study material</div><div style={s("font:500 12.5px Manrope;color:var(--faint);margin-top:2px")}>Add a PDF chapter for your students</div></div>
               <button onClick={() => setUploadOpen(false)} style={s("width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:18px")}>✕</button>
             </div>
-            <div className="h-drop" style={s("border:1.5px dashed var(--border2);border-radius:13px;padding:26px;text-align:center;margin-bottom:18px;cursor:pointer;background:var(--card)")}>
+            <input ref={fileRef} type="file" accept="application/pdf" onChange={(e) => chooseFile(e.target.files?.[0])} style={s("display:none")} />
+            <div
+              className="h-drop"
+              onClick={() => fileRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={onDropFile}
+              style={s(`border:1.5px dashed ${dragOver ? "var(--accent)" : "var(--border2)"};border-radius:13px;padding:26px;text-align:center;margin-bottom:18px;cursor:pointer;background:${dragOver ? "var(--accent-soft)" : "var(--card)"}`)}
+            >
               <div style={s("width:46px;height:46px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 10px")}><I w={22}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5-5 5 5" /><path d="M12 5v13" /></I></div>
-              <div style={s("font:600 14px Manrope")}>Drag &amp; drop a PDF, or <span style={s("color:var(--accent)")}>browse</span></div>
-              <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:4px")}>Max 25 MB · PDF only</div>
+              {uploadFile ? (
+                <>
+                  <div style={s("font:600 14px Manrope;color:var(--accent)")}>{uploadFile.name}</div>
+                  <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:4px")}>{(uploadFile.size / 1048576).toFixed(1)} MB · click to choose a different file</div>
+                </>
+              ) : (
+                <>
+                  <div style={s("font:600 14px Manrope")}>Drag &amp; drop a PDF, or <span style={s("color:var(--accent)")}>browse</span></div>
+                  <div style={s("font:500 12px Manrope;color:var(--faint);margin-top:4px")}>PDF only</div>
+                </>
+              )}
             </div>
             <div style={s("display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px")}>
-              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Course</label><select value={upload.course} onChange={(e) => setUpload({ ...upload, course: e.target.value })} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option>BCSIT</option><option>BBA</option><option>BHM</option></select></div>
-              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Semester</label><select value={upload.semester} onChange={(e) => setUpload({ ...upload, semester: e.target.value })} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option>Semester 1</option><option>Semester 2</option><option>Semester 3</option><option>Semester 4</option><option>Semester 5</option><option>Semester 6</option><option>Semester 7</option><option>Semester 8</option></select></div>
-              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Subject</label><input className="h-input" value={upload.subject} onChange={(e) => setUpload({ ...upload, subject: e.target.value })} placeholder="e.g. Database Management" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
-              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Chapter no.</label><input className="h-input" value={upload.chapter} onChange={(e) => setUpload({ ...upload, chapter: e.target.value })} placeholder="e.g. 3" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Course</label><select value={upload.courseId} onChange={(e) => setUpload({ ...upload, courseId: e.target.value, semesterId: "", subjectId: "", chapterId: "" })} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option value="">Select course</option>{liveCourses.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}</select></div>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Semester</label><select value={upload.semesterId} onChange={(e) => setUpload({ ...upload, semesterId: e.target.value, subjectId: "", chapterId: "" })} disabled={!upload.courseId} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option value="">Select semester</option>{upSemesters.map((sm) => (<option key={sm.id} value={String(sm.id)}>{sm.name}</option>))}</select></div>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Subject</label><select value={upload.subjectId} onChange={(e) => setUpload({ ...upload, subjectId: e.target.value, chapterId: "" })} disabled={!upload.semesterId} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option value="">{upSubjects.length ? "Select subject" : "No subjects here"}</option>{upSubjects.map((sub) => (<option key={sub.id} value={sub.id}>{sub.title}</option>))}</select></div>
+              <div><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Chapter</label><select value={upload.chapterId} onChange={(e) => setUpload({ ...upload, chapterId: e.target.value })} disabled={!upload.subjectId} style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none;cursor:pointer")}><option value="">{upChapters.length ? "Select chapter" : "No chapters"}</option>{upChapters.map((ch) => (<option key={ch.id} value={ch.id}>{ch.title}</option>))}</select></div>
             </div>
             <div style={s("margin-bottom:22px")}><label style={s("font:600 12px Manrope;color:var(--muted);display:block;margin-bottom:7px")}>Title</label><input className="h-input" value={upload.title} onChange={(e) => setUpload({ ...upload, title: e.target.value })} placeholder="e.g. Normalization & Keys" style={s("width:100%;background:var(--card);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font:500 14px Manrope;outline:none")} /></div>
+            {!liveCourses.length && <div style={s("font:500 12px Manrope;color:var(--amber);margin-bottom:14px")}>Sign in as a teacher to upload — courses could not be loaded.</div>}
             <div style={s("display:flex;gap:10px;justify-content:flex-end")}>
-              <button onClick={() => setUploadOpen(false)} style={s("padding:11px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font:600 13px Manrope;cursor:pointer")}>Cancel</button>
-              <button className="h-primary" onClick={submitUpload} style={s("padding:11px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;font:600 13px Manrope;cursor:pointer")}>Upload material</button>
+              <button onClick={() => { setUploadOpen(false); resetUpload(); }} style={s("padding:11px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font:600 13px Manrope;cursor:pointer")}>Cancel</button>
+              <button className="h-primary" onClick={submitUpload} disabled={uploadBusy} style={s(`padding:11px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;font:600 13px Manrope;cursor:${uploadBusy ? "default" : "pointer"};opacity:${uploadBusy ? ".65" : "1"}`)}>{uploadBusy ? "Uploading…" : "Upload material"}</button>
             </div>
           </div>
         </div>
@@ -1252,10 +1422,24 @@ const CSS = `
 .tdscope .h-qa:hover{border-color:var(--accent)!important;background:var(--accent-soft)!important}
 .tdscope .h-accent:hover{border-color:var(--accent)!important;color:var(--accent)!important}
 .tdscope .h-del:hover{border-color:var(--red)!important;color:var(--red)!important}
-.tdscope .h-card:hover{border-color:var(--border2)!important}
 .tdscope .h-drop:hover{border-color:var(--accent)!important}
 .tdscope .h-input:focus{border-color:var(--accent)!important}
 .tdscope .h-search:focus-within{border-color:var(--accent)!important}
+/* subtle motion — gentle card lift + staggered entrance for the stat row */
+.tdscope .h-card{transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.tdscope .h-card:hover{border-color:var(--border2)!important;transform:translateY(-3px);box-shadow:0 12px 30px rgba(2,6,20,.14)}
+.tdscope .h-stat{animation:fadeUp .5s cubic-bezier(.2,.7,.3,1) both;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.tdscope .h-stat:hover{transform:translateY(-3px);border-color:var(--border2)!important;box-shadow:0 12px 30px rgba(2,6,20,.14)}
+.tdscope .h-stat:nth-child(1){animation-delay:.03s}
+.tdscope .h-stat:nth-child(2){animation-delay:.1s}
+.tdscope .h-stat:nth-child(3){animation-delay:.17s}
+.tdscope .h-stat:nth-child(4){animation-delay:.24s}
+.tdscope .h-row{transition:background .15s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @keyframes popIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
 @keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){
+  .tdscope .h-stat{animation:none}
+  .tdscope .h-card:hover,.tdscope .h-stat:hover{transform:none}
+}
 `;
