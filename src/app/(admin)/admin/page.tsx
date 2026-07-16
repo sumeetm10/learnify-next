@@ -93,7 +93,7 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Total Users — tall feature card with sparkline */}
         <Card
-          className="dash-reveal lg:row-span-2 bg-slate-900 border-[#2a3a4a] overflow-hidden transition-shadow duration-300 hover:shadow-lg hover:shadow-black/30"
+          className="dash-reveal lg:row-span-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 overflow-hidden transition-shadow duration-300 hover:shadow-lg hover:shadow-black/30"
           style={{ animationDelay: "0ms" }}
         >
           <CardContent className="px-3 py-2.5 h-full flex flex-col">
@@ -104,10 +104,10 @@ export default function AdminDashboardPage() {
               </span>
             </div>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-5xl font-bold tracking-tight text-white tabular-nums leading-none">
+              <span className="text-5xl font-bold tracking-tight text-gray-900 dark:text-white tabular-nums leading-none">
                 <CountUp value={data.totalUsers} />
               </span>
-              <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-400">
+              <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                 <ArrowUpRight size={14} />
                 +12%
               </span>
@@ -147,7 +147,7 @@ export default function AdminDashboardPage() {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-              <div className="flex justify-between text-xs text-gray-400">
+              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                 <span>7 days ago</span>
                 <span>today</span>
               </div>
@@ -203,11 +203,11 @@ export default function AdminDashboardPage() {
       {/* Charts Row - Equal Split */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* User Registrations Chart */}
-        <Card className="dash-reveal bg-slate-900 border-[#2a3a4a]" style={{ animationDelay: "320ms" }}>
+        <Card className="dash-reveal bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800" style={{ animationDelay: "320ms" }}>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-sm font-medium text-white">
+                <CardTitle className="text-sm font-medium text-gray-900 dark:text-white">
                   User Registrations
                 </CardTitle>
                 <p className="text-xs text-gray-400 mt-0.5">
@@ -268,11 +268,11 @@ export default function AdminDashboardPage() {
         </Card>
 
         {/* Activity Chart */}
-        <Card className="dash-reveal bg-slate-900 border-[#2a3a4a]" style={{ animationDelay: "380ms" }}>
+        <Card className="dash-reveal bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800" style={{ animationDelay: "380ms" }}>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-sm font-medium text-white">
+                <CardTitle className="text-sm font-medium text-gray-900 dark:text-white">
                   Student Activity
                 </CardTitle>
                 <p className="text-xs text-gray-400 mt-0.5">
@@ -536,21 +536,21 @@ function MiniStat({
   const c = ACCENTS[accent];
   return (
     <Card
-      className="dash-reveal bg-slate-900 border-[#2a3a4a] transition-shadow duration-300 hover:shadow-lg hover:shadow-black/30"
+      className="dash-reveal bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 transition-shadow duration-300 hover:shadow-lg hover:shadow-black/30"
       style={{ animationDelay: `${delay}ms` }}
     >
       <CardContent className="px-3 py-2.5">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-gray-400">{title}</p>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
           <span className={`${c.bg} p-1.5 rounded-md`}>
             <Icon size={14} className={c.icon} />
           </span>
         </div>
         <div className="mt-1">
-          <p className="text-4xl font-bold text-white tracking-tight tabular-nums leading-none">
+          <p className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight tabular-nums leading-none">
             <CountUp value={value} />
           </p>
-          {subtitle && <p className="text-sm text-gray-400 mt-1">{subtitle}</p>}
+          {subtitle && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>}
         </div>
       </CardContent>
     </Card>

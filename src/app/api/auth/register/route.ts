@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { randomBytes } from "crypto";
-import { sendVerificationEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -45,7 +43,10 @@ export async function POST(request: Request) {
   }
 
   // Hash password and create user as STUDENT tied to their course.
-  // emailVerified stays null — they must confirm via the email link before login.
+  // Email verification is currently disabled (no verified sending domain), so
+  // new accounts are auto-verified and can log in immediately. To re-enable:
+  // set emailVerified to null here, restore the token + sendVerificationEmail
+  // block, and restore the emailVerified check in lib/auth.ts.
   const hashedPassword = await bcrypt.hash(password, 10);
   await prisma.user.create({
     data: {
@@ -54,26 +55,9 @@ export async function POST(request: Request) {
       name: name || null,
       role: "STUDENT",
       courseId,
+      emailVerified: new Date(),
     },
   });
 
-  // Create a one-time verification token (valid 24h) and email the link.
-  const token = randomBytes(32).toString("hex");
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  await prisma.verificationToken.create({
-    data: { email: normalizedEmail, token, expires },
-  });
-
-  try {
-    await sendVerificationEmail(normalizedEmail, token, name || null);
-  } catch {
-    // Don't fail registration if the email send hiccups — user can resend.
-    return NextResponse.json({
-      success: true,
-      emailSent: false,
-      message: "Account created, but the verification email failed to send. Try resending.",
-    });
-  }
-
-  return NextResponse.json({ success: true, emailSent: true });
+  return NextResponse.json({ success: true });
 }

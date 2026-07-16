@@ -19,7 +19,7 @@ export async function sendVerificationEmail(
   name?: string | null
 ): Promise<void> {
   const link = `${APP_URL}/api/auth/verify?token=${token}`;
-  await getResend().emails.send({
+  const { error } = await getResend().emails.send({
     from: FROM,
     to: email,
     subject: "Verify your email — Learnify",
@@ -43,4 +43,11 @@ export async function sendVerificationEmail(
       </div>
     `,
   });
+
+  // Resend returns { error } instead of throwing on API failures (e.g. the
+  // onboarding@resend.dev sender only delivers to your own account email).
+  // Surface it so callers/logs see the real reason.
+  if (error) {
+    throw new Error(`Resend send failed: ${error.message}`);
+  }
 }

@@ -148,8 +148,14 @@ export function AuthCard({ initialMode = "login" }: { initialMode?: Mode }) {
         setLoading(false);
         return;
       }
-      setRegistered(true);
-      setLoading(false);
+      // Email verification disabled — sign the new student in and go home.
+      const result = await signIn("credentials", { email, password, redirect: false });
+      if (result?.error) {
+        switchMode("login");
+        setLoading(false);
+      } else {
+        router.push("/");
+      }
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
