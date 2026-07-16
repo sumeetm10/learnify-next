@@ -72,9 +72,14 @@ export async function GET() {
         quizCompleted: prog?.quizCompleted ?? false,
         quizScore: prog?.quizScore ?? 0,
       };
-      subjectTotal += 2;
-      if (prog?.visited) subjectCompleted++;
-      if (prog?.quizCompleted) subjectCompleted++;
+
+      // Better weighted scoring: reading (30%) + quiz completion (40%) + quiz quality (30%)
+      if (prog?.visited) subjectCompleted += 0.3; // 30% for reading
+      if (prog?.quizCompleted) subjectCompleted += 0.4; // 40% for completing quiz
+      if (prog?.quizCompleted && prog?.quizScore) {
+        subjectCompleted += (prog.quizScore / 100) * 0.3; // 30% weighted by score
+      }
+      subjectTotal += 1; // Each chapter contributes 1 unit
     }
 
     courses[course.id].semesters[semId].subjects[subject.id] = {
@@ -101,9 +106,12 @@ export async function GET() {
         const sub = sem.subjects[subjectId];
         for (const chId of Object.keys(sub.chapters)) {
           const ch = sub.chapters[chId];
-          semTotal += 2;
-          if (ch.visited) semCompleted++;
-          if (ch.quizCompleted) semCompleted++;
+          semTotal += 1; // Each chapter is 1 unit
+          if (ch.visited) semCompleted += 0.3; // 30% for reading
+          if (ch.quizCompleted) semCompleted += 0.4; // 40% for quiz completion
+          if (ch.quizCompleted && ch.quizScore) {
+            semCompleted += (ch.quizScore / 100) * 0.3; // 30% weighted by score
+          }
         }
       }
 

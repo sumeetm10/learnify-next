@@ -8,6 +8,8 @@ import { Progress as ProgressBar } from "@/components/ui/progress";
 import { CheckCircle, Circle, BookOpen, Trophy, LogIn, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ProgressData } from "@/types";
+import ProgressChart from "@/components/progress/ProgressChart";
+import { useTheme } from "next-themes";
 
 const subjectNames: Record<string, string> = {
   mathematics: "Mathematics I",
@@ -26,6 +28,7 @@ export default function ProgressPage() {
   const { data: session, status } = useSession();
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (session) {
@@ -49,14 +52,23 @@ export default function ProgressPage() {
             <Skeleton className="h-5 w-56 mx-auto" />
           </div>
 
-          {/* Overall progress skeleton */}
-          <Card className="mb-8">
+          {/* Chart skeleton - theme aware */}
+          <Card className={`${theme === 'dark' ? 'bg-[#1a1f2e] border-[#2d3548]' : 'bg-white border-gray-200'} border shadow-lg mb-8`}>
             <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Skeleton className="h-5 w-36" />
-                <Skeleton className="h-7 w-14" />
+              <div className="flex items-center gap-3 mb-4">
+                <Skeleton className={`w-10 h-10 rounded-xl ${theme === 'dark' ? 'bg-[#2d3548]' : 'bg-gray-200'}`} />
+                <div>
+                  <Skeleton className={`h-5 w-32 mb-1 ${theme === 'dark' ? 'bg-[#2d3548]' : 'bg-gray-200'}`} />
+                  <Skeleton className={`h-3 w-24 ${theme === 'dark' ? 'bg-[#2d3548]' : 'bg-gray-200'}`} />
+                </div>
               </div>
-              <Skeleton className="h-3 w-full rounded-full" />
+              <Skeleton className={`h-12 w-24 mb-6 ${theme === 'dark' ? 'bg-[#2d3548]' : 'bg-gray-200'}`} />
+              <Skeleton className={`h-[280px] w-full rounded-lg ${theme === 'dark' ? 'bg-[#2d3548]' : 'bg-gray-100'}`} />
+              <div className={`grid grid-cols-3 gap-px mt-6 ${theme === 'dark' ? 'bg-[#2d3548]' : 'bg-gray-200'}`}>
+                <Skeleton className={`h-20 ${theme === 'dark' ? 'bg-[#1a1f2e]' : 'bg-white'}`} />
+                <Skeleton className={`h-20 ${theme === 'dark' ? 'bg-[#1a1f2e]' : 'bg-white'}`} />
+                <Skeleton className={`h-20 ${theme === 'dark' ? 'bg-[#1a1f2e]' : 'bg-white'}`} />
+              </div>
             </CardContent>
           </Card>
 
@@ -146,16 +158,8 @@ export default function ProgressPage() {
           <p className="text-gray-600 dark:text-gray-300">Track your progress across all chapters</p>
         </div>
 
-        {/* Overall Progress */}
-        <Card className="mb-8">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-lg">Overall Progress</h2>
-              <span className="text-2xl font-bold text-[#427da6]">{progress.totalProgress}%</span>
-            </div>
-            <ProgressBar value={progress.totalProgress} className="h-3" />
-          </CardContent>
-        </Card>
+        {/* Progress Chart */}
+        <ProgressChart progress={progress} />
 
         {/* Empty state — student hasn't read anything yet */}
         {Object.keys(progress.courses).length === 0 && (
