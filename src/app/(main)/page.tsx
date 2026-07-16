@@ -42,6 +42,14 @@ export default async function HomePage() {
     orderBy: { name: "asc" },
   });
 
+  // Fetch site settings
+  let settings = await prisma.siteSettings.findUnique({
+    where: { id: "default" },
+  });
+  if (!settings) {
+    settings = await prisma.siteSettings.create({ data: { id: "default" } });
+  }
+
   // Students only see their own course; guests/teachers/admins see all.
   const session = await getServerSession(authOptions);
   const user = session?.user as { role?: string; courseId?: string | null } | undefined;
@@ -81,19 +89,15 @@ export default async function HomePage() {
           {/* Glass badge */}
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-4 py-1.5 text-sm text-white/90 mb-8 shadow-lg animate-[fadeInDown_0.6s_ease-out]">
             <GraduationCap size={16} className="text-[#9fd3f5]" />
-            Shubhashree College of Management — E-Learning Portal
+            {settings.collegeName} — E-Learning Portal
           </div>
 
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight animate-[fadeInDown_0.8s_ease-out]">
-            Unlock Your{" "}
-            <span className="bg-gradient-to-r from-[#9fd3f5] via-white to-[#c7e6fa] bg-clip-text text-transparent">
-              Learning Potential
-            </span>
+            {settings.tagline || "Unlock Your Learning Potential"}
           </h1>
 
           <blockquote className="text-lg md:text-xl text-white/80 italic mb-10 max-w-2xl mx-auto">
-            &ldquo;Education is not the learning of facts, but the training of the mind to think.&rdquo;
-            <span className="block mt-2 text-sm not-italic text-white/60">&mdash; Albert Einstein</span>
+            &ldquo;{settings.heroText || "Education is not the learning of facts, but the training of the mind to think."}&rdquo;
           </blockquote>
 
           <p className="text-white/70 text-sm mb-5 flex items-center justify-center gap-2">

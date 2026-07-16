@@ -24,6 +24,8 @@ export default function ProgressChart({ progress }: ProgressChartProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // Client-mount guard for the chart (avoids SSR/hydration mismatch).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

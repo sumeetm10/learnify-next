@@ -159,7 +159,7 @@ export function CourseManager() {
 
   return (
     <>
-      <Card>
+      <Card className="dark:bg-slate-900">
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base">Courses</CardTitle>
           <Button size="sm" onClick={openAdd} className="gap-1.5">

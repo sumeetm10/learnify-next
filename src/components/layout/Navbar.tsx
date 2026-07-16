@@ -11,6 +11,7 @@ import type { CourseData } from "@/types";
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [courses, setCourses] = useState<CourseData[]>([]);
+  const [adminScaled, setAdminScaled] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
@@ -21,6 +22,15 @@ export function Navbar() {
       .then((data) => setCourses(data.courses || []))
       .catch(() => {});
   }, []);
+
+  // On admin routes, start at full size then scale down next frame so the
+  // shrink animates (transition-all) instead of appearing pre-scaled.
+  const isAdminRoute = pathname.startsWith("/admin");
+  useEffect(() => {
+    if (!isAdminRoute) return;
+    const id = requestAnimationFrame(() => setAdminScaled(true));
+    return () => cancelAnimationFrame(id);
+  }, [isAdminRoute]);
 
   const userRole = session?.user ? (session.user as unknown as { role?: string }).role : null;
   const userCourseId = session?.user ? (session.user as unknown as { courseId?: string | null }).courseId : null;
@@ -44,14 +54,18 @@ export function Navbar() {
   ];
 
   return (
-    <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-5xl">
-      <nav className="bg-[#427da6]/85 dark:bg-[#1a3550]/90 backdrop-blur-xl border border-white/15 rounded-full px-4 py-2.5 shadow-lg shadow-[#1a3550]/20 flex items-center justify-between">
-        <Link href="/" className="text-white font-bold text-xl tracking-wide">
+    <header className={`fixed top-4 z-50 w-[90%] max-w-5xl transition-all duration-500 ease-in-out ${
+      isAdminRoute
+        ? `left-1/2 md:left-[calc(50%_+_8rem)] -translate-x-1/2 ${adminScaled ? "scale-[0.92]" : "scale-100"}`
+        : "left-1/2 -translate-x-1/2"
+    }`}>
+      <nav className="bg-[#427da6]/85 dark:bg-[#1a3550]/90 backdrop-blur-xl border border-white/15 shadow-lg shadow-[#1a3550]/20 flex items-center justify-between rounded-full px-4 py-2.5 transition-all duration-500 ease-in-out">
+        <Link href="/" className="font-bold tracking-wide text-white text-xl">
           Learnify
         </Link>
 
         {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-6">
+        <div className="hidden md:flex items-center gap-4">
           {visibleCourses.length > 0 && (
             <select
               className="bg-white/20 text-white border-none rounded-full px-3 py-1.5 text-sm cursor-pointer outline-none [&>option]:text-black"
@@ -89,7 +103,7 @@ export function Navbar() {
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
-                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-sm font-medium px-3 py-1.5 rounded-full transition-colors"
+                className="flex items-center gap-1.5 text-white bg-white/20 hover:bg-white/30 font-medium rounded-full transition-colors text-sm px-3 py-1.5"
               >
                 <LogIn size={14} />
                 Login
@@ -106,7 +120,7 @@ export function Navbar() {
               </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
-                className="flex items-center gap-1.5 bg-red-500/80 hover:bg-red-500 text-white text-sm font-medium px-3 py-1.5 rounded-full transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 bg-red-500/80 hover:bg-red-500 text-white font-medium rounded-full transition-all duration-500 cursor-pointer text-sm px-3 py-1.5"
               >
                 <LogOut size={14} />
                 Logout

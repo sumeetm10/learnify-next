@@ -19,7 +19,7 @@ export default function ContentPage() {
       </div>
 
       <Tabs defaultValue="courses" className="space-y-4">
-        <TabsList>
+        <TabsList className="dark:bg-slate-900">
           <TabsTrigger value="courses" className="gap-1.5">
             <GraduationCap size={14} /> Courses
           </TabsTrigger>
