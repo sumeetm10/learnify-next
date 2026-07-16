@@ -133,7 +133,7 @@ export default function AdminMessagesPage() {
 
       {/* Tabs for filtering */}
       <Tabs value={status} onValueChange={handleTabChange}>
-        <TabsList>
+        <TabsList className="dark:bg-slate-900">
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="unread" className="gap-1.5">
             Unread
@@ -156,7 +156,7 @@ export default function AdminMessagesPage() {
           <p className="text-gray-500">Loading messages...</p>
         </div>
       ) : messages.length === 0 ? (
-        <Card>
+        <Card className="dark:bg-slate-900">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <MessageSquare size={40} className="text-gray-300 mb-3" />
             <p className="text-gray-500 text-sm">No messages yet</p>
@@ -167,7 +167,7 @@ export default function AdminMessagesPage() {
           {messages.map((msg) => (
             <Card
               key={msg.id}
-              className={`transition-colors ${
+              className={`transition-colors dark:bg-slate-900 ${
                 !msg.isRead ? "border-l-4 border-l-blue-500" : ""
               }`}
             >
