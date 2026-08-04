@@ -109,6 +109,11 @@ export function AnnouncementProvider({ children }: { children: ReactNode }) {
     setBoxHidden((prev) => !prev);
   };
 
+  const dismiss = () => {
+    if (announcement) localStorage.setItem("dismissed_announcement", announcement.id);
+    setDismissed(true);
+  };
+
   return (
     <AnnouncementContext.Provider value={{ hasBanner }}>
       {children}
@@ -177,7 +182,7 @@ export function AnnouncementProvider({ children }: { children: ReactNode }) {
                     {announcement.message}
                   </p>
                   <button
-                    onClick={toggleBox}
+                    onClick={dismiss}
                     className="shrink-0 w-7 h-7 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center cursor-pointer transition-all duration-200"
                     aria-label="Dismiss announcement"
                   >

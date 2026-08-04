@@ -41,15 +41,28 @@ export async function POST(request: Request) {
 
     const circleColor = validateColor(body.circleColor) ? body.circleColor : "#3b82f6";
     const boxColor = validateColor(body.boxColor) ? body.boxColor : "#3b82f6";
+    const isActive = body.isActive ?? true;
 
-    const announcement = await prisma.announcement.create({
-      data: {
-        message: body.message.trim(),
-        isActive: body.isActive ?? true,
-        circleColor,
-        boxColor,
-      },
-    });
+    const data = {
+      message: body.message.trim(),
+      isActive,
+      circleColor,
+      boxColor,
+    };
+
+    // Enforce a single active announcement: when this one is active,
+    // deactivate all existing active announcements first.
+    const announcement = isActive
+      ? (
+          await prisma.$transaction([
+            prisma.announcement.updateMany({
+              where: { isActive: true },
+              data: { isActive: false },
+            }),
+            prisma.announcement.create({ data }),
+          ])
+        )[1]
+      : await prisma.announcement.create({ data });
 
     return NextResponse.json(announcement, { status: 201 });
   } catch {
@@ -89,10 +102,26 @@ export async function PATCH(request: Request) {
       if (color) updateData.boxColor = color;
     }
 
-    const announcement = await prisma.announcement.update({
-      where: { id: body.id },
-      data: updateData,
-    });
+    // Enforce a single active announcement: when this one is being set
+    // active, deactivate all others first within the same transaction.
+    const announcement =
+      updateData.isActive === true
+        ? (
+            await prisma.$transaction([
+              prisma.announcement.updateMany({
+                where: { NOT: { id: body.id }, isActive: true },
+                data: { isActive: false },
+              }),
+              prisma.announcement.update({
+                where: { id: body.id },
+                data: updateData,
+              }),
+            ])
+          )[1]
+        : await prisma.announcement.update({
+            where: { id: body.id },
+            data: updateData,
+          });
 
     return NextResponse.json(announcement);
   } catch {
