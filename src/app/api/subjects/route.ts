@@ -10,6 +10,12 @@ export async function GET(request: Request) {
     include: {
       chapters: {
         orderBy: { orderIndex: "asc" },
+        include: {
+          teacherPdfs: {
+            select: { id: true, title: true, filePath: true },
+            orderBy: { createdAt: "desc" },
+          },
+        },
       },
     },
     orderBy: { title: "asc" },

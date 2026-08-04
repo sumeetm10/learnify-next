@@ -328,14 +328,43 @@ export default function TeacherPage() {
     }
     setUploadBusy(true);
     try {
-      const fd = new FormData();
-      fd.append("file", uploadFile);
-      fd.append("title", upload.title.trim());
-      fd.append("chapterId", upload.chapterId);
-      const res = await fetch("/api/teacher/upload", { method: "POST", body: fd });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Upload failed");
+      // 1. Ask our API for a presigned URL (browser uploads straight to R2,
+      //    bypassing Vercel's 4.5MB request-body limit).
+      const presignRes = await fetch("/api/teacher/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: uploadFile.name, contentType: "application/pdf" }),
+      });
+      const presign = await presignRes.json().catch(() => ({}));
+      if (!presignRes.ok) throw new Error(presign.error || "Could not start upload");
+
+      // 2. Upload the file directly to R2.
+      const putRes = await fetch(presign.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/pdf" },
+        body: uploadFile,
+      });
+      if (!putRes.ok) throw new Error("File upload to storage failed");
+
+      // 3. Save the record in our database.
+      const recRes = await fetch("/api/teacher/pdfs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: upload.title.trim(),
+          chapterId: upload.chapterId,
+          filePath: presign.publicUrl,
+        }),
+      });
+      const rec = await recRes.json().catch(() => ({}));
+      if (!recRes.ok) throw new Error(rec.error || "Failed to save material");
+
       await loadMaterials();
+      // Sync the Materials list filters to the just-uploaded item so it isn't
+      // hidden behind an active course/semester filter (runs while upload.* is still set).
+      const uploadedCourse = liveCourses.find((c) => c.id === upload.courseId);
+      if (uploadedCourse) setCourse(uploadedCourse.name);
+      setMatFilterSem("All semesters");
       setUploadOpen(false);
       resetUpload();
       setPage("materials");
@@ -635,127 +664,6 @@ export default function TeacherPage() {
       {/* ================= MAIN ================= */}
       <div style={s("flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg)")}>
         {/* TOPBAR */}
-        <header className="td-top" style={s("position:relative;z-index:30;flex:none;height:70px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 28px;background:var(--topbar);backdrop-filter:blur(8px)")}>
-          <button className="td-burger h-bell" onClick={() => setSidebarOpen((o) => !o)} aria-label="Menu" style={s("display:none;width:40px;height:40px;flex:none;border-radius:11px;background:var(--card);border:1px solid var(--border);cursor:pointer;align-items:center;justify-content:center;color:var(--muted)")}>
-            <I w={20} sw={2}><path d="M3 6h18M3 12h18M3 18h18" /></I>
-          </button>
-          <div style={s("min-width:0")}>
-            <div className="td-title" style={s("font:700 19px Poppins;letter-spacing:-.3px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{pageTitle}</div>
-            <div className="td-sub" style={s("font:500 12px Manrope;color:var(--faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{pageSub}</div>
-          </div>
-          <div style={s("flex:1")} />
-          <div className="h-search" style={s("display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:9px 13px;width:230px")}>
-            <I w={16} sw={2} stroke="var(--faint)">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4-4" />
-            </I>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search materials, quizzes…"
-              style={s("border:none;background:transparent;color:var(--text);font:500 13px Manrope;outline:none;width:100%")}
-            />
-          </div>
-
-          {/* theme toggle — mirrors the site's light/dark switch */}
-          <button
-            className="h-bell"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            aria-label="Toggle theme"
-            style={s("width:42px;height:42px;border-radius:11px;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)")}
-          >
-            {isDark ? (
-              <I w={18} sw={2}>
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
-              </I>
-            ) : (
-              <I w={18} sw={2}>
-                <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z" />
-              </I>
-            )}
-          </button>
-
-          {/* notifications */}
-          <div style={s("position:relative")}>
-            <button
-              className="h-bell"
-              onClick={() => { setBellOpen((o) => !o); setMenuOpen(false); setUnread(false); }}
-              aria-label="Notifications"
-              style={s("position:relative;width:42px;height:42px;border-radius:11px;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)")}
-            >
-              <I w={19}>
-                <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-              </I>
-              {unread && <span style={s("position:absolute;top:9px;right:10px;width:7px;height:7px;border-radius:50%;background:var(--accent);border:2px solid var(--card)")} />}
-            </button>
-            {bellOpen && (
-              <>
-                <div onClick={() => setBellOpen(false)} style={s("position:fixed;inset:0;z-index:40")} />
-                <div style={s("position:absolute;right:0;top:52px;width:330px;background:var(--card2);border:1px solid var(--border2);border-radius:14px;box-shadow:0 18px 46px rgba(0,0,0,.28);z-index:41;overflow:hidden;animation:popIn .18s ease")}>
-                  <div style={s("padding:14px 16px;border-bottom:1px solid var(--border);font:700 14px Poppins")}>Notifications</div>
-                  <div style={s("max-height:320px;overflow-y:auto")}>
-                    {SEED_ACTIVITY.map((a, i) => {
-                      const mt = meta(a.course);
-                      return (
-                        <div key={i} style={s("display:flex;gap:11px;padding:12px 16px;border-bottom:1px solid var(--border)")}>
-                          <div style={s(`width:32px;height:32px;border-radius:50%;background:${mt.bg};color:${mt.color};display:flex;align-items:center;justify-content:center;font:700 11px Poppins;flex:none`)}>{initials(a.name)}</div>
-                          <div style={s("min-width:0")}>
-                            <div style={s("font:600 13px Manrope")}>{a.name} <span style={s("font-weight:500;color:var(--muted)")}>{a.action}</span></div>
-                            <div style={s("font:500 11px Manrope;color:var(--faint);margin-top:2px")}>{a.time}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* profile avatar + account menu */}
-          <div style={s("position:relative")}>
-            <button
-              onClick={() => { setMenuOpen((o) => !o); setBellOpen(false); }}
-              aria-label="Account menu"
-              style={s("width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:700 14px Poppins;color:#fff;cursor:pointer;border:none;overflow:hidden;padding:0")}
-            >
-              {avatarUrl ? <img src={avatarUrl} alt="" style={s("width:100%;height:100%;object-fit:cover")} /> : userInitials}
-            </button>
-            {menuOpen && (
-              <>
-                <div onClick={() => setMenuOpen(false)} style={s("position:fixed;inset:0;z-index:40")} />
-                <div style={s("position:absolute;right:0;top:52px;width:262px;background:var(--card2);border:1px solid var(--border2);border-radius:14px;box-shadow:0 18px 46px rgba(0,0,0,.28);z-index:41;overflow:hidden;animation:popIn .18s ease")}>
-                  <div style={s("display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border)")}>
-                    <div style={s("width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#5f97d8,#3f6fac);display:flex;align-items:center;justify-content:center;font:700 15px Poppins;color:#fff;flex:none;overflow:hidden")}>
-                      {avatarUrl ? <img src={avatarUrl} alt="" style={s("width:100%;height:100%;object-fit:cover")} /> : userInitials}
-                    </div>
-                    <div style={s("min-width:0")}>
-                      <div style={s("font:700 14px Poppins;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{displayName}</div>
-                      <div style={s("font:500 12px Manrope;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{displayEmail}</div>
-                    </div>
-                  </div>
-                  <div style={s("padding:5px")}>
-                    <div style={s("padding:7px 12px 4px;font:600 11px Manrope;color:var(--faint)")}>Signed in as {roleLabel}</div>
-                    <button className="h-qa" onClick={() => { setPage("profile"); setMenuOpen(false); }} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px;border:none;border-radius:9px;cursor:pointer;font:600 13px Manrope;text-align:left;background:transparent;color:var(--text)")}>
-                      {IcProfile} View profile
-                    </button>
-                    <button className="h-qa" onClick={() => { setPage("progress"); setMenuOpen(false); }} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px;border:none;border-radius:9px;cursor:pointer;font:600 13px Manrope;text-align:left;background:transparent;color:var(--text)")}>
-                      {IcChart} Student analytics
-                    </button>
-                    <button className="h-del" onClick={doLogout} style={s("display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px;border:1px solid transparent;border-radius:9px;cursor:pointer;font:600 13px Manrope;text-align:left;background:transparent;color:var(--red)")}>
-                      <I w={17} sw={2}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></I>
-                      Sign out
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </header>
-
         {/* SCROLL CONTENT */}
         <main className="td-main" style={s("flex:1;overflow-y:auto;padding:28px")}>
           {/* ============ DASHBOARD ============ */}

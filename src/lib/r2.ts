@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // Cloudflare R2 is S3-compatible. These env vars come from the R2 dashboard.
 const ACCOUNT_ID = process.env.R2_ACCOUNT_ID!;
@@ -40,6 +41,24 @@ export async function uploadToR2(
     })
   );
   return `${PUBLIC_URL}/${key}`;
+}
+
+/**
+ * Create a presigned PUT URL so the browser can upload a file straight to R2,
+ * bypassing our serverless function (and Vercel's 4.5MB request-body limit).
+ * Returns the temporary upload URL and the file's eventual public URL.
+ */
+export async function getUploadUrl(
+  key: string,
+  contentType: string,
+  expiresIn = 600
+): Promise<{ uploadUrl: string; publicUrl: string }> {
+  const uploadUrl = await getSignedUrl(
+    r2,
+    new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }),
+    { expiresIn }
+  );
+  return { uploadUrl, publicUrl: `${PUBLIC_URL}/${key}` };
 }
 
 /** Delete an object from R2 given its public URL (or key). No-op if not an R2 URL. */
