@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Prisma, Role } from "@prisma/client";
+import { Prisma, type Role } from "@prisma/client";
 
 // GET: List users with search, role filter, pagination
 export async function GET(request: Request) {
@@ -11,7 +11,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search") || "";
   const role = searchParams.get("role") || "";
-  const page = parseInt(searchParams.get("page") || "1");
+  const parsed = parseInt(searchParams.get("page") || "1", 10);
+  const page = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
   const limit = 20;
 
   const where: Prisma.UserWhereInput = {};
@@ -89,19 +90,29 @@ export async function PATCH(request: Request) {
     updateData.isActive = isActive;
   }
 
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: updateData,
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      isActive: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  try {
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-  return NextResponse.json(updated);
+    return NextResponse.json(updated);
+  } catch (e) {
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2025"
+    ) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    throw e;
+  }
 }

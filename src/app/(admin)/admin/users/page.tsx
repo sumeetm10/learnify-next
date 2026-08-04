@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
+import { useSession } from "next-auth/react";
 import type { UserData, UserRole } from "@/types";
 
 // Badge color map for roles - dark mode aware
@@ -61,6 +62,10 @@ export default function AdminUsersPage() {
   const [mounted, setMounted] = useState(false);
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const { data: session } = useSession();
+  const currentUserId = session?.user
+    ? (session.user as unknown as { id?: string }).id
+    : undefined;
 
   // Ref for debounce timer
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -142,6 +147,9 @@ export default function AdminUsersPage() {
           data.isActive ? "User activated" : "User deactivated"
         );
       }
+
+      // Refetch so users, total, and totalPages resync with the active search/filter
+      fetchUsers(search, roleFilter, page);
     } catch {
       toast.error("Failed to update user");
     }
@@ -313,7 +321,10 @@ export default function AdminUsersPage() {
                           onClick={() =>
                             updateUser(user.id, { role: "STUDENT" })
                           }
-                          disabled={user.role === "STUDENT"}
+                          disabled={
+                            user.role === "STUDENT" ||
+                            user.id === currentUserId
+                          }
                           className="text-sm"
                         >
                           <GraduationCap size={14} className="mr-2" />
@@ -323,7 +334,10 @@ export default function AdminUsersPage() {
                           onClick={() =>
                             updateUser(user.id, { role: "TEACHER" })
                           }
-                          disabled={user.role === "TEACHER"}
+                          disabled={
+                            user.role === "TEACHER" ||
+                            user.id === currentUserId
+                          }
                           className="text-sm"
                         >
                           <BookOpenIcon size={14} className="mr-2" />
@@ -345,6 +359,7 @@ export default function AdminUsersPage() {
                             onClick={() =>
                               updateUser(user.id, { isActive: false })
                             }
+                            disabled={user.id === currentUserId}
                             className="text-sm text-red-600 focus:text-red-600"
                           >
                             <UserX size={14} className="mr-2" />
