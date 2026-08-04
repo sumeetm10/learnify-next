@@ -57,8 +57,17 @@ export function SemesterManager() {
   const [formCourseId, setFormCourseId] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Filters
+  const [filterCourse, setFilterCourse] = useState<string>("all");
+
+  // Filter displayed semesters by course
+  const displayedSemesters =
+    filterCourse && filterCourse !== "all"
+      ? semesters.filter((s) => s.courseId === filterCourse)
+      : semesters;
+
   const { sorted, sortKey, sortDir, requestSort } = useSortable<Semester>(
-    semesters,
+    displayedSemesters,
     {
       id: (s) => s.id,
       name: (s) => s.name,
@@ -92,7 +101,13 @@ export function SemesterManager() {
     setEditing(null);
     setFormId("");
     setFormName("");
-    setFormCourseId(courses.length > 0 ? courses[0].id : "");
+    setFormCourseId(
+      filterCourse !== "all"
+        ? filterCourse
+        : courses.length > 0
+        ? courses[0].id
+        : ""
+    );
     setDialogOpen(true);
   };
 
@@ -174,14 +189,31 @@ export function SemesterManager() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base">Semesters</CardTitle>
-          <Button size="sm" onClick={openAdd} className="gap-1.5">
-            <Plus size={14} /> Add Semester
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={filterCourse} onValueChange={setFilterCourse}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All courses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All courses</SelectItem>
+                {courses.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button size="sm" onClick={openAdd} className="gap-1.5">
+              <Plus size={14} /> Add Semester
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          {semesters.length === 0 ? (
+          {displayedSemesters.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-8">
-              No semesters yet. Add one to get started.
+              {semesters.length === 0
+                ? "No semesters yet. Add one to get started."
+                : "No semesters found. Adjust the filter or add one."}
             </p>
           ) : (
             <Table>

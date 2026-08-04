@@ -33,9 +33,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+interface Course {
+  id: string;
+  name: string;
+}
+
 interface Semester {
   id: number;
   name: string;
+  courseId: string;
+  course: { name: string };
 }
 
 interface Subject {
@@ -56,6 +63,7 @@ interface Chapter {
 
 export function ChapterManager() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +72,7 @@ export function ChapterManager() {
   const [saving, setSaving] = useState(false);
 
   // Filters
+  const [filterCourse, setFilterCourse] = useState<string>("all");
   const [filterSemester, setFilterSemester] = useState<string>("all");
   const [filterSubject, setFilterSubject] = useState<string>("all");
 
@@ -74,11 +83,43 @@ export function ChapterManager() {
   const [formOrderIndex, setFormOrderIndex] = useState("1");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Derived: subjects filtered by selected semester
+  // Derived: semesters filtered by selected course
+  const filteredSemesters =
+    filterCourse && filterCourse !== "all"
+      ? semesters.filter((sem) => sem.courseId === filterCourse)
+      : semesters;
+
+  // Semester ids owned by the selected course
+  const courseSemesterIds = new Set(filteredSemesters.map((sem) => sem.id));
+
+  // Derived: subjects filtered by selected semester, else by selected course
   const filteredSubjects =
     filterSemester && filterSemester !== "all"
       ? subjects.filter((s) => s.semesterId === parseInt(filterSemester))
-      : subjects;
+      : filterCourse && filterCourse !== "all"
+        ? subjects.filter((s) => courseSemesterIds.has(s.semesterId))
+        : subjects;
+
+  // "BCSIT — 1st Semester" — semester names repeat across courses
+  const semesterLabel = (sem: Semester) =>
+    sem.course?.name ? `${sem.course.name} — ${sem.name}` : sem.name;
+
+  // "Financial Accounting — BBA 1st Semester", falls back to the bare title
+  const subjectLabel = (sub: Subject) => {
+    const sem = semesters.find((s) => s.id === sub.semesterId);
+    if (!sem?.course?.name) return sub.title;
+    return `${sub.title} — ${sem.course.name} ${sem.name}`;
+  };
+
+  const fetchCourses = async () => {
+    try {
+      const res = await fetch("/api/admin/courses");
+      if (!res.ok) throw new Error("Failed to fetch");
+      setCourses(await res.json());
+    } catch {
+      toast.error("Failed to load courses");
+    }
+  };
 
   const fetchSemesters = async () => {
     try {
@@ -117,6 +158,7 @@ export function ChapterManager() {
   };
 
   useEffect(() => {
+    fetchCourses();
     fetchSemesters();
     fetchSubjects();
   }, []);
@@ -131,6 +173,12 @@ export function ChapterManager() {
   useEffect(() => {
     setFilterSubject("all");
   }, [filterSemester]);
+
+  // Reset semester + subject filters when course filter changes
+  useEffect(() => {
+    setFilterSemester("all");
+    setFilterSubject("all");
+  }, [filterCourse]);
 
   const openAdd = () => {
     setEditing(null);
@@ -217,13 +265,17 @@ export function ChapterManager() {
     }
   };
 
-  // Filter displayed chapters by semester if no subject filter
+  // Filter displayed chapters by semester (else course) if no subject filter
   const displayedChapters =
-    filterSemester && filterSemester !== "all" && filterSubject === "all"
-      ? chapters.filter(
-          (ch) => ch.subject.semesterId === parseInt(filterSemester)
-        )
-      : chapters;
+    filterSubject !== "all"
+      ? chapters
+      : filterSemester && filterSemester !== "all"
+        ? chapters.filter(
+            (ch) => ch.subject.semesterId === parseInt(filterSemester)
+          )
+        : filterCourse && filterCourse !== "all"
+          ? chapters.filter((ch) => courseSemesterIds.has(ch.subject.semesterId))
+          : chapters;
 
   const { sorted, sortKey, sortDir, requestSort } = useSortable<Chapter>(
     displayedChapters,
@@ -253,15 +305,28 @@ export function ChapterManager() {
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base">Chapters</CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
+            <Select value={filterCourse} onValueChange={setFilterCourse}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="All courses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All courses</SelectItem>
+                {courses.map((course) => (
+                  <SelectItem key={course.id} value={course.id}>
+                    {course.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={filterSemester} onValueChange={setFilterSemester}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="All semesters" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All semesters</SelectItem>
-                {semesters.map((sem) => (
+                {filteredSemesters.map((sem) => (
                   <SelectItem key={sem.id} value={String(sem.id)}>
-                    {sem.name}
+                    {semesterLabel(sem)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -386,7 +451,7 @@ export function ChapterManager() {
                   <SelectContent>
                     {subjects.map((sub) => (
                       <SelectItem key={sub.id} value={sub.id}>
-                        {sub.title}
+                        {subjectLabel(sub)}
                       </SelectItem>
                     ))}
                   </SelectContent>

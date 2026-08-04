@@ -34,9 +34,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+interface Course {
+  id: string;
+  name: string;
+}
+
 interface Semester {
   id: number;
   name: string;
+  courseId: string;
+  course: { name: string };
 }
 
 interface Subject {
@@ -52,7 +59,9 @@ interface Subject {
 export function SubjectManager() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [semesters, setSemesters] = useState<Semester[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterCourse, setFilterCourse] = useState<string>("all");
   const [filterSemester, setFilterSemester] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Subject | null>(null);
@@ -65,8 +74,22 @@ export function SubjectManager() {
   const [formIcon, setFormIcon] = useState("");
   const [formSemesterId, setFormSemesterId] = useState("");
 
+  // Derived: semesters filtered by selected course
+  const filteredSemesters =
+    filterCourse && filterCourse !== "all"
+      ? semesters.filter((sem) => sem.courseId === filterCourse)
+      : semesters;
+
+  // Filter displayed subjects by course if no semester filter
+  const displayedSubjects =
+    filterCourse !== "all" && filterSemester === "all"
+      ? subjects.filter((sub) =>
+          filteredSemesters.some((sem) => sem.id === sub.semesterId)
+        )
+      : subjects;
+
   const { sorted, sortKey, sortDir, requestSort } = useSortable<Subject>(
-    subjects,
+    displayedSubjects,
     {
       title: (s) => s.title,
       description: (s) => s.description,
@@ -84,6 +107,17 @@ export function SubjectManager() {
       setSemesters(data);
     } catch {
       toast.error("Failed to load semesters");
+    }
+  };
+
+  const fetchCourses = async () => {
+    try {
+      const res = await fetch("/api/admin/courses");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setCourses(data);
+    } catch {
+      toast.error("Failed to load courses");
     }
   };
 
@@ -106,6 +140,7 @@ export function SubjectManager() {
 
   useEffect(() => {
     fetchSemesters();
+    fetchCourses();
   }, []);
 
   useEffect(() => {
@@ -114,13 +149,20 @@ export function SubjectManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterSemester]);
 
+  // Reset semester filter when course filter changes
+  useEffect(() => {
+    setFilterSemester("all");
+  }, [filterCourse]);
+
   const openAdd = () => {
     setEditing(null);
     setFormId("");
     setFormTitle("");
     setFormDescription("");
     setFormIcon("");
-    setFormSemesterId(semesters.length > 0 ? String(semesters[0].id) : "");
+    setFormSemesterId(
+      filteredSemesters.length > 0 ? String(filteredSemesters[0].id) : ""
+    );
     setDialogOpen(true);
   };
 
@@ -212,16 +254,29 @@ export function SubjectManager() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base">Subjects</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={filterCourse} onValueChange={setFilterCourse}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All courses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All courses</SelectItem>
+                {courses.map((course) => (
+                  <SelectItem key={course.id} value={course.id}>
+                    {course.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={filterSemester} onValueChange={setFilterSemester}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All semesters" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All semesters</SelectItem>
-                {semesters.map((sem) => (
+                {filteredSemesters.map((sem) => (
                   <SelectItem key={sem.id} value={String(sem.id)}>
-                    {sem.name}
+                    {sem.course.name} — {sem.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -232,10 +287,10 @@ export function SubjectManager() {
           </div>
         </CardHeader>
         <CardContent>
-          {subjects.length === 0 ? (
+          {displayedSubjects.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-8">
               No subjects found.{" "}
-              {filterSemester !== "all"
+              {filterCourse !== "all" || filterSemester !== "all"
                 ? "Try a different filter or add a new subject."
                 : "Add one to get started."}
             </p>
@@ -358,7 +413,7 @@ export function SubjectManager() {
                   <SelectContent>
                     {semesters.map((sem) => (
                       <SelectItem key={sem.id} value={String(sem.id)}>
-                        {sem.name}
+                        {sem.course.name} — {sem.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -34,9 +34,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+interface Course {
+  id: string;
+  name: string;
+}
+
 interface Semester {
   id: number;
   name: string;
+  courseId: string;
+  course: { name: string };
 }
 
 interface Subject {
@@ -62,6 +69,7 @@ interface Question {
 
 export function QuestionManager() {
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -71,6 +79,7 @@ export function QuestionManager() {
   const [saving, setSaving] = useState(false);
 
   // Filters
+  const [filterCourse, setFilterCourse] = useState<string>("all");
   const [filterSemester, setFilterSemester] = useState<string>("all");
   const [filterSubject, setFilterSubject] = useState<string>("all");
   const [filterChapter, setFilterChapter] = useState<string>("none");
@@ -97,9 +106,19 @@ export function QuestionManager() {
   );
 
   // Derived filtered lists
+  const filteredSemesters =
+    filterCourse && filterCourse !== "all"
+      ? semesters.filter((sem) => sem.courseId === filterCourse)
+      : semesters;
+
+  // Semester ids owned by the selected course
+  const courseSemesterIds = new Set(filteredSemesters.map((sem) => sem.id));
+
   const filteredSubjects =
     filterSemester && filterSemester !== "all"
       ? subjects.filter((s) => s.semesterId === parseInt(filterSemester))
+      : filterCourse && filterCourse !== "all"
+      ? subjects.filter((s) => courseSemesterIds.has(s.semesterId))
       : subjects;
 
   const filteredChapters =
@@ -110,7 +129,35 @@ export function QuestionManager() {
           const sub = subjects.find((s) => s.id === c.subjectId);
           return sub?.semesterId === parseInt(filterSemester);
         })
+      : filterCourse && filterCourse !== "all"
+      ? chapters.filter((c) => {
+          const sub = subjects.find((s) => s.id === c.subjectId);
+          return sub ? courseSemesterIds.has(sub.semesterId) : false;
+        })
       : chapters;
+
+  // Semester names repeat across courses ("1st Semester" exists in every course),
+  // so always qualify them with the owning course. Falls back to the bare name
+  // for legacy rows that came back without an included course.
+  const semesterLabel = (sem: Semester) =>
+    sem.course?.name ? `${sem.course.name} — ${sem.name}` : sem.name;
+
+  // Chapter titles repeat across subjects, so qualify them with the owning
+  // subject when it can be resolved from the loaded subjects.
+  const chapterLabel = (ch: Chapter) => {
+    const sub = subjects.find((s) => s.id === ch.subjectId);
+    return sub ? `${ch.title} — ${sub.title}` : ch.title;
+  };
+
+  const fetchCourses = async () => {
+    try {
+      const res = await fetch("/api/admin/courses");
+      if (!res.ok) throw new Error("Failed to fetch");
+      setCourses(await res.json());
+    } catch {
+      toast.error("Failed to load courses");
+    }
+  };
 
   const fetchSemesters = async () => {
     try {
@@ -162,6 +209,7 @@ export function QuestionManager() {
   };
 
   useEffect(() => {
+    fetchCourses();
     fetchSemesters();
     fetchSubjects();
     fetchChapters();
@@ -172,6 +220,10 @@ export function QuestionManager() {
   }, [filterChapter]);
 
   // Reset cascading filters
+  useEffect(() => {
+    setFilterSemester("all");
+  }, [filterCourse]);
+
   useEffect(() => {
     setFilterSubject("all");
     setFilterChapter("none");
@@ -295,15 +347,28 @@ export function QuestionManager() {
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="text-base">Questions</CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
-            <Select value={filterSemester} onValueChange={setFilterSemester}>
+            <Select value={filterCourse} onValueChange={setFilterCourse}>
               <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="All courses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All courses</SelectItem>
+                {courses.map((course) => (
+                  <SelectItem key={course.id} value={course.id}>
+                    {course.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterSemester} onValueChange={setFilterSemester}>
+              <SelectTrigger className="w-[190px]">
                 <SelectValue placeholder="All semesters" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All semesters</SelectItem>
-                {semesters.map((sem) => (
+                {filteredSemesters.map((sem) => (
                   <SelectItem key={sem.id} value={String(sem.id)}>
-                    {sem.name}
+                    {semesterLabel(sem)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -329,7 +394,7 @@ export function QuestionManager() {
                 <SelectItem value="none">Select a chapter</SelectItem>
                 {filteredChapters.map((ch) => (
                   <SelectItem key={ch.id} value={ch.id}>
-                    {ch.title}
+                    {filterSubject === "all" ? chapterLabel(ch) : ch.title}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -429,7 +494,7 @@ export function QuestionManager() {
                 <SelectContent>
                   {chapters.map((ch) => (
                     <SelectItem key={ch.id} value={ch.id}>
-                      {ch.title}
+                      {chapterLabel(ch)}
                     </SelectItem>
                   ))}
                 </SelectContent>
