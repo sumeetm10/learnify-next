@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { makeKey, uploadToR2, deleteFromR2 } from "@/lib/r2";
@@ -52,16 +53,26 @@ export async function POST(request: Request) {
     pdfPath = await uploadToR2(key, buffer, "application/pdf");
   }
 
-  const chapter = await prisma.chapter.create({
-    data: {
-      id,
-      title,
-      pdfPath,
-      orderIndex: orderIndex || 1,
-      subjectId,
-    },
-  });
-  return NextResponse.json(chapter);
+  try {
+    const chapter = await prisma.chapter.create({
+      data: {
+        id,
+        title,
+        pdfPath,
+        orderIndex: orderIndex || 1,
+        subjectId,
+      },
+    });
+    return NextResponse.json(chapter);
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return NextResponse.json(
+        { error: "An item with this ID already exists" },
+        { status: 409 }
+      );
+    }
+    throw e;
+  }
 }
 
 export async function PATCH(request: Request) {
@@ -87,6 +98,19 @@ export async function PATCH(request: Request) {
   if (file && file.size > 0) {
     if (file.type !== "application/pdf") {
       return NextResponse.json({ error: "Only PDF files allowed" }, { status: 400 });
+    }
+    // Delete the old R2 object being replaced (skip seed placeholder / empty).
+    const existing = await prisma.chapter.findUnique({
+      where: { id },
+      select: { pdfPath: true },
+    });
+    const oldPdfPath = existing?.pdfPath;
+    if (oldPdfPath && oldPdfPath !== PLACEHOLDER_PDF) {
+      try {
+        await deleteFromR2(oldPdfPath);
+      } catch {
+        // ignore failure to delete the old object
+      }
     }
     const buffer = Buffer.from(await file.arrayBuffer());
     const key = makeKey("admin", file.name);

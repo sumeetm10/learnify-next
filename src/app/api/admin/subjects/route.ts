@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -32,10 +33,20 @@ export async function POST(request: Request) {
       { status: 400 }
     );
 
-  const subject = await prisma.subject.create({
-    data: { id, title, description, icon, semesterId: parseInt(semesterId) },
-  });
-  return NextResponse.json(subject);
+  try {
+    const subject = await prisma.subject.create({
+      data: { id, title, description, icon, semesterId: parseInt(semesterId) },
+    });
+    return NextResponse.json(subject);
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return NextResponse.json(
+        { error: "An item with this ID already exists" },
+        { status: 409 }
+      );
+    }
+    throw e;
+  }
 }
 
 export async function PATCH(request: Request) {

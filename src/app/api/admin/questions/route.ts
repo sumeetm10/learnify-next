@@ -45,6 +45,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!options.includes(answer)) {
+    return NextResponse.json(
+      { error: "Answer must be one of the options" },
+      { status: 400 }
+    );
+  }
+
   const question = await prisma.question.create({
     data: {
       text,
@@ -61,15 +68,24 @@ export async function PATCH(request: Request) {
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
 
-  const { id, text, options, answer, orderIndex } = await request.json();
+  const { id, text, options, answer, orderIndex, chapterId } =
+    await request.json();
   if (!id)
     return NextResponse.json({ error: "ID required" }, { status: 400 });
+
+  if (options !== undefined && answer !== undefined && !options.includes(answer)) {
+    return NextResponse.json(
+      { error: "Answer must be one of the options" },
+      { status: 400 }
+    );
+  }
 
   const data: Record<string, unknown> = {};
   if (text !== undefined) data.text = text;
   if (options !== undefined) data.options = options;
   if (answer !== undefined) data.answer = answer;
   if (orderIndex !== undefined) data.orderIndex = orderIndex;
+  if (chapterId !== undefined) data.chapterId = chapterId;
 
   const question = await prisma.question.update({ where: { id }, data });
   return NextResponse.json(question);

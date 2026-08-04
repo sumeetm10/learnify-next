@@ -94,6 +94,12 @@ async function main() {
   }
   console.log("✅ Semesters created (8 per course)");
 
+  // Resync the Postgres autoincrement sequence so admin "Add Semester" doesn't collide
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('"Semester"','id'), (SELECT COALESCE(MAX(id),0) FROM "Semester") + 1, false)`
+  );
+  console.log("✅ Semester id sequence resynced");
+
   // 4. Seed all subjects, chapters, and questions
   // Subjects are assigned to BCSIT course semesters
   const bcsitSemesters = semesterMap["bcsit"]; // [9, 10, 11, 12, 13, 14, 15, 16]

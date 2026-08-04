@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -22,10 +23,20 @@ export async function POST(request: Request) {
   if (!id || !name || !slug || !description || !icon)
     return NextResponse.json({ error: "All fields required" }, { status: 400 });
 
-  const course = await prisma.course.create({
-    data: { id, name, slug, description, icon },
-  });
-  return NextResponse.json(course);
+  try {
+    const course = await prisma.course.create({
+      data: { id, name, slug, description, icon },
+    });
+    return NextResponse.json(course);
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return NextResponse.json(
+        { error: "An item with this ID already exists" },
+        { status: 409 }
+      );
+    }
+    throw e;
+  }
 }
 
 export async function PATCH(request: Request) {
