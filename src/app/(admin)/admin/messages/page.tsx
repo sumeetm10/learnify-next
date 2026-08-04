@@ -42,6 +42,10 @@ export default function AdminMessagesPage() {
       );
       if (!res.ok) throw new Error("Failed to fetch");
       const data: MessagesResponse = await res.json();
+      if (data.totalPages >= 1 && page > data.totalPages) {
+        setPage(data.totalPages);
+        return;
+      }
       setMessages(data.messages);
       setTotalPages(data.totalPages);
       setUnreadCount(data.unreadCount);
